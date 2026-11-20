@@ -1,0 +1,13 @@
+{
+  "routes": [
+    {
+      "routePath": "/api/ice-servers",
+      "mountPath": "/api",
+      "method": "GET",
+      "module": [
+        "api/ice-servers.ts:onRequestGet"
+      ]
+    }
+  ],
+  "baseURL": "/"
+}
