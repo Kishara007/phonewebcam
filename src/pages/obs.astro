@@ -1,0 +1,180 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import {
+  buildBreadcrumbSchema,
+  buildHowToSchema,
+  type BreadcrumbItem,
+} from '@/lib/seo';
+
+const PAGE_TITLE = 'Phone Camera to OBS Browser Source — Free Wireless Cam';
+const PAGE_DESC =
+  'Stream your iPhone or Android camera wirelessly to OBS Studio using a clean WebRTC Browser Source. Free VDO.Ninja alternative with 1-click JSON.';
+
+const breadcrumbs: BreadcrumbItem[] = [
+  { label: 'Home', href: '/' },
+  { label: 'OBS Studio', href: '/obs' },
+];
+
+const steps = [
+  {
+    name: 'Open PhoneWebcam and copy your room code',
+    text: 'Open https://phonewebcam.pages.dev/ on your streaming PC to generate a 4-character pairing code.',
+    url: '/',
+  },
+  {
+    name: 'Import the 1-Click OBS Scene Collection (.json)',
+    text: 'Click Download 1-Click OBS Setup (.json), then in OBS Studio choose Scene Collection -> Import to add a pre-sized 1920x1080 Browser Source with Control audio via OBS enabled.',
+  },
+  {
+    name: 'Or add the Clean OBS View manually to any scene',
+    text: 'Click Clean OBS View to copy https://phonewebcam.pages.dev/?view=CODE, add a Browser Source in OBS at 1920x1080, and check Control audio via OBS.',
+  },
+  {
+    name: 'Start your phone camera in 1080p',
+    text: 'Scan the QR code on your iPhone, Android, or spare old phone, select 1080p and your rear lens, and tap Start Camera & Mic.',
+  },
+];
+
+const schemas = [
+  buildBreadcrumbSchema(breadcrumbs),
+  buildHowToSchema({
+    name: 'How to Connect Your Phone Camera to OBS Studio Wirelessly',
+    description: PAGE_DESC,
+    totalTime: 'PT2M',
+    steps,
+  }),
+];
+---
+
+<BaseLayout
+  title={PAGE_TITLE}
+  description={PAGE_DESC}
+  canonicalPath="/obs"
+  ogType="article"
+  schemas={schemas}
+>
+  <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+    <Breadcrumbs items={breadcrumbs} />
+
+    <header class="space-y-4 mb-8">
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-ink leading-tight">
+        Connect Your Phone Camera to OBS Studio Wirelessly
+      </h1>
+      <p class="text-lg text-muted leading-relaxed">
+        Want a fast, clutter-free way to stream your phone camera to OBS Studio without capture cards, subscription apps, or complex URL flags? PhoneWebcam is a lightweight, free VDO.Ninja alternative built around a clean <code class="px-1.5 py-0.5 rounded bg-surface border border-edge font-mono text-sm text-ink">?view=CODE</code> Browser Source and a 1-click JSON import.
+      </p>
+
+      <div class="pt-2">
+        <a
+          href="/"
+          class="btn-accent inline-flex items-center gap-2.5 min-h-[52px] px-6 py-3 rounded-2xl font-extrabold text-base sm:text-lg shadow-sm"
+        >
+          <span>Launch PhoneWebcam Tool</span>
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </header>
+
+    <div class="space-y-8">
+      <!-- Method 1: 1-Click JSON Import -->
+      <section class="rounded-3xl bg-card border-2 border-edge p-6 sm:p-8 space-y-4">
+        <div class="inline-flex items-center px-3 py-1 rounded-full bg-surface border border-edge text-xs font-extrabold uppercase tracking-wider text-ink">
+          Fastest Setup (10 Seconds)
+        </div>
+        <h2 class="text-2xl font-extrabold text-ink">
+          Method 1: 1-Click OBS Scene Collection (.json) Import
+        </h2>
+        <p class="text-base sm:text-lg text-muted leading-relaxed">
+          Instead of manually typing URLs, canvas dimensions, and audio checkboxes, let PhoneWebcam build the scene collection for you:
+        </p>
+        <ol class="list-decimal list-inside space-y-3 text-base sm:text-lg text-muted leading-relaxed">
+          <li>
+            On <a href="/" class="font-bold text-ink underline decoration-accent decoration-2 underline-offset-2">PhoneWebcam</a>, click <strong class="text-ink">Download 1-Click OBS Setup (.json)</strong>. It writes a standards-compliant OBS Scene Collection pre-set to <strong class="text-ink">1920×1080</strong>, <strong class="text-ink">30 fps</strong>, and <strong class="text-ink">Control audio via OBS</strong> (<code class="font-mono text-sm">reroute_audio: true</code>).
+          </li>
+          <li>
+            In OBS Studio, go to <strong class="text-ink">Scene Collection → Import</strong>, click <strong class="text-ink">Add</strong>, pick the downloaded <code class="font-mono text-sm">PhoneWebcam-OBS-XXXX.json</code> file, and press <strong class="text-ink">Import</strong>.
+          </li>
+          <li>
+            Switch to the newly imported scene collection from the top <strong class="text-ink">Scene Collection</strong> menu.
+          </li>
+          <li>
+            Scan the QR code on your iPhone or Android (or pair an old spare phone on a desk tripod) and tap <strong class="text-ink">Start Camera &amp; Mic</strong>. Your clean full-frame video and mic mixer track go live immediately.
+          </li>
+        </ol>
+      </section>
+
+      <!-- Method 2: Clean ?view=CODE Browser Source -->
+      <section class="rounded-3xl bg-card border-2 border-edge p-6 sm:p-8 space-y-4">
+        <h2 class="text-2xl font-extrabold text-ink">
+          Method 2: Add Clean OBS View (<code class="font-mono text-xl">?view=CODE</code>) to Any Existing Scene
+        </h2>
+        <p class="text-base sm:text-lg text-muted leading-relaxed">
+          Already have a custom Twitch, YouTube, or recording layout in OBS? Add PhoneWebcam directly into your existing scene as a clean Browser Source with zero UI overlays:
+        </p>
+        <ol class="list-decimal list-inside space-y-3 text-base sm:text-lg text-muted leading-relaxed">
+          <li>
+            Click the <strong class="text-ink">Clean OBS View</strong> button on PhoneWebcam to copy your unique URL: <code class="px-1.5 py-0.5 rounded bg-surface border border-edge font-mono text-sm text-ink">https://phonewebcam.pages.dev/?view=YOURCODE</code>.
+          </li>
+          <li>
+            In OBS Studio under <strong class="text-ink">Sources</strong>, click <strong class="text-ink">+ → Browser</strong> and name it <em>PhoneWebcam</em>.
+          </li>
+          <li>
+            Paste the URL, set <strong class="text-ink">Width: 1920</strong> and <strong class="text-ink">Height: 1080</strong>, and check <strong class="text-ink">Control audio via OBS</strong> so your phone microphone appears as its own controllable slider in the OBS Audio Mixer.
+          </li>
+          <li>
+            Click <strong class="text-ink">OK</strong>. Even if you leave the PhoneWebcam browser tab open on your PC, the Clean OBS View automatically attaches to your live stream.
+          </li>
+        </ol>
+      </section>
+
+      <!-- Streamer & Old Phone Tips -->
+      <section class="rounded-3xl bg-surface/65 border border-edge p-6 sm:p-8 space-y-4">
+        <h2 class="text-2xl font-extrabold text-ink">
+          1080p Wireless Quality &amp; Old-Phone Studio Tips
+        </h2>
+        <ul class="space-y-2.5 text-base sm:text-lg text-muted leading-relaxed">
+          <li>
+            <strong class="text-ink">Use an iPhone on Windows PC free:</strong> Safari on iOS streams cleanly to Windows OBS Studio over Wi-Fi with zero third-party drivers or Lightning cables.
+          </li>
+          <li>
+            <strong class="text-ink">Repurpose an old phone as a dedicated camera:</strong> Mount an unused smartphone on a desk stand, plug it into USB power, select <strong class="text-ink">1080p</strong> + <strong class="text-ink">Back</strong> lens, and turn on <strong class="text-ink">Keep Screen Awake</strong>.
+          </li>
+          <li>
+            <strong class="text-ink">Control audio cleanly in OBS:</strong> With <em>Control audio via OBS</em> checked, you can add OBS noise suppression, compressor, or gain filters directly to your phone's microphone track.
+          </li>
+          <li>
+            <strong class="text-ink">Landscape framing:</strong> Rotate your phone sideways (landscape) before tapping Start Camera &amp; Mic so your 16:9 OBS canvas fills edge to edge with no black bars.
+          </li>
+        </ul>
+      </section>
+
+      <!-- Bottom CTA -->
+      <section class="rounded-3xl bg-card border-2 border-edge p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-extrabold text-ink">Ready to add your wireless phone cam to OBS?</h2>
+          <p class="text-base text-muted mt-1">Generate your clean Browser Source URL or 1-click JSON now.</p>
+        </div>
+        <a
+          href="/"
+          class="btn-accent inline-flex items-center justify-center gap-2 min-h-[50px] px-6 py-3 rounded-2xl font-extrabold text-base shrink-0"
+        >
+          <span>Open Live Tool</span>
+          <span aria-hidden="true">→</span>
+        </a>
+      </section>
+
+      <nav aria-label="Related guides" class="flex flex-wrap gap-3 pt-2">
+        <a href="/zoom" class="px-4 py-2.5 rounded-xl bg-card hover:bg-surface border border-edge font-bold text-ink transition">
+          Zoom &amp; VB-Cable Guide →
+        </a>
+        <a href="/google-meet" class="px-4 py-2.5 rounded-xl bg-card hover:bg-surface border border-edge font-bold text-ink transition">
+          Google Meet Guide →
+        </a>
+        <a href="/how-to-use" class="px-4 py-2.5 rounded-xl bg-card hover:bg-surface border border-edge font-bold text-ink transition">
+          Complete How-to-Use →
+        </a>
+      </nav>
+    </div>
+  </article>
+</BaseLayout>

@@ -1,0 +1,77 @@
+---
+import { OG_IMAGE_URL, SITE_NAME, toCanonicalUrl } from '@/lib/seo';
+
+interface Props {
+  title: string;
+  description: string;
+  canonicalPath: string;
+  ogType?: 'website' | 'article' | 'profile';
+  ogImage?: string;
+  schemas?: Array<Record<string, unknown>>;
+}
+
+const {
+  title,
+  description,
+  canonicalPath,
+  ogType = 'website',
+  ogImage = OG_IMAGE_URL,
+  schemas = [],
+} = Astro.props;
+
+// Enforce exact SEO character budgets at build time (50-60 char titles, 130-155 char descriptions)
+if (title.length < 50 || title.length > 60) {
+  throw new Error(
+    `[SEOHead] Title for "${canonicalPath}" must be 50-60 chars (got ${title.length}): "${title}"`
+  );
+}
+
+if (description.length < 130 || description.length > 155) {
+  throw new Error(
+    `[SEOHead] Meta description for "${canonicalPath}" must be 130-155 chars (got ${description.length}): "${description}"`
+  );
+}
+
+// Guardrails: never emit AggregateRating/Review, and never emit BreadcrumbList on "/"
+for (const schema of schemas) {
+  const serialized = JSON.stringify(schema);
+  if (serialized.includes('AggregateRating') || serialized.includes('"@type":"Review"')) {
+    throw new Error(`[SEOHead] Forbidden schema (AggregateRating/Review) detected on "${canonicalPath}".`);
+  }
+  if (canonicalPath === '/' && serialized.includes('"BreadcrumbList"')) {
+    throw new Error('[SEOHead] BreadcrumbList schema is forbidden on the homepage ("/").');
+  }
+}
+
+const canonicalUrl = toCanonicalUrl(canonicalPath);
+---
+
+<title>{title}</title>
+<meta name="description" content={description} />
+<link rel="canonical" href={canonicalUrl} />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="theme-color" content="#71C9CE" />
+
+<!-- Open Graph -->
+<meta property="og:type" content={ogType} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={canonicalUrl} />
+<meta property="og:image" content={ogImage} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="PhoneWebcam — Use your phone as a wireless PC webcam and mic directly in your browser" />
+<meta property="og:site_name" content={SITE_NAME} />
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImage} />
+
+<!-- Structured JSON-LD Schema -->
+{
+  schemas.map((schema) => (
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(schema)} />
+  ))
+}

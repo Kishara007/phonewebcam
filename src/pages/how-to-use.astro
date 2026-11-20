@@ -1,0 +1,185 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import {
+  buildBreadcrumbSchema,
+  buildHowToSchema,
+  type BreadcrumbItem,
+} from '@/lib/seo';
+
+const PAGE_TITLE = 'How to Use Phone as Wireless Webcam & Mic on Windows PC';
+const PAGE_DESC =
+  'Step-by-step guide to pairing your phone with your PC via QR code or 4-character code for ultra-low-latency peer-to-peer WebRTC video and audio.';
+
+const breadcrumbs: BreadcrumbItem[] = [
+  { label: 'Home', href: '/' },
+  { label: 'How to Use', href: '/how-to-use' },
+];
+
+const steps = [
+  {
+    name: 'Open PhoneWebcam on your PC or Mac',
+    text: 'Visit https://phonewebcam.pages.dev/ on your desktop browser in Use on PC (Receiver) mode. A 4-character pairing code and matching QR code appear automatically.',
+    url: '/',
+  },
+  {
+    name: 'Pair via QR code or 4-character code on your phone',
+    text: 'Scan the QR code using your iPhone or Android camera—or open phonewebcam.pages.dev in Safari/Chrome on your phone and type the 4-character code into the four code boxes.',
+  },
+  {
+    name: 'Grant camera & microphone access and start streaming',
+    text: 'Choose Front or Back camera and 720p or 1080p quality, then tap Start Camera & Mic. Approve the browser permission prompt to begin peer-to-peer Wi-Fi streaming.',
+  },
+  {
+    name: 'Send the feed to Google Meet, Zoom, or OBS Studio',
+    text: 'Use the live toolbar to mirror video, check your audio meter and latency, or click Download 1-Click OBS Setup (.json) to expose your phone as a native Virtual Camera.',
+  },
+];
+
+const schemas = [
+  buildBreadcrumbSchema(breadcrumbs),
+  buildHowToSchema({
+    name: 'How to Use PhoneWebcam on Desktop & Mobile',
+    description: PAGE_DESC,
+    totalTime: 'PT1M',
+    steps,
+  }),
+];
+---
+
+<BaseLayout
+  title={PAGE_TITLE}
+  description={PAGE_DESC}
+  canonicalPath="/how-to-use"
+  ogType="article"
+  schemas={schemas}
+>
+  <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+    <Breadcrumbs items={breadcrumbs} />
+
+    <header class="space-y-4 mb-8">
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-ink leading-tight">
+        How to Use PhoneWebcam on Desktop &amp; Mobile
+      </h1>
+      <p class="text-lg text-muted leading-relaxed">
+        PhoneWebcam turns any modern iPhone or Android phone into a wireless HD webcam and microphone for Windows, macOS, or Linux in under 30 seconds. Everything runs directly inside your browser over peer-to-peer WebRTC—no downloads, no accounts, and no cloud video servers.
+      </p>
+
+      <div class="pt-2">
+        <a
+          href="/"
+          class="btn-accent inline-flex items-center gap-2.5 min-h-[52px] px-6 py-3 rounded-2xl font-extrabold text-base sm:text-lg shadow-sm"
+        >
+          <span>Open PhoneWebcam Tool</span>
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </header>
+
+    <div class="space-y-8">
+      <!-- Pairing Methods -->
+      <section class="rounded-3xl bg-card border-2 border-edge p-6 sm:p-8 space-y-5">
+        <h2 class="text-2xl font-extrabold text-ink">
+          Two Fast Ways to Pair Your Phone &amp; PC
+        </h2>
+
+        <div class="space-y-2">
+          <h3 class="text-lg font-extrabold text-ink">1. Instant QR Code Pairing (Recommended)</h3>
+          <p class="text-base sm:text-lg text-muted leading-relaxed">
+            Open <a href="/" class="font-bold text-ink underline decoration-accent decoration-2 underline-offset-2">PhoneWebcam</a> on your PC. Point your smartphone camera at the QR code and tap the notification link. PhoneWebcam opens in <strong class="text-ink">Phone (Camera &amp; Mic)</strong> mode with your 4-character pairing code already pre-filled—just tap <strong class="text-ink">Start Camera &amp; Mic</strong>.
+          </p>
+        </div>
+
+        <div class="space-y-2">
+          <h3 class="text-lg font-extrabold text-ink">2. Manual 4-Character Code Pairing</h3>
+          <p class="text-base sm:text-lg text-muted leading-relaxed">
+            Prefer typing? Open <code class="px-1.5 py-0.5 rounded bg-surface border border-edge font-mono text-sm text-ink">phonewebcam.pages.dev</code> in Safari (iOS) or Chrome (Android), tap <strong class="text-ink">Use on Phone (Camera &amp; Mic)</strong>, and enter the four easy-to-read uppercase letters/numbers shown on your PC (ambiguous characters like O, 0, I, and 1 are never used).
+          </p>
+        </div>
+      </section>
+
+      <!-- Live Controls Reference -->
+      <section class="rounded-3xl bg-card border-2 border-edge p-6 sm:p-8 space-y-4">
+        <h2 class="text-2xl font-extrabold text-ink">
+          Live Controls on PC &amp; Phone
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="p-4 rounded-2xl bg-surface/65 border border-edge space-y-2">
+            <h3 class="text-base font-extrabold text-ink">On Your PC (Receiver)</h3>
+            <ul class="space-y-1.5 text-sm sm:text-base text-muted">
+              <li>• <strong class="text-ink">Live Audio Meter:</strong> Confirms your phone mic is active even while local PC audio stays muted to prevent echo.</li>
+              <li>• <strong class="text-ink">Resolution &amp; Latency:</strong> Displays real-time stream dimensions and round-trip milliseconds.</li>
+              <li>• <strong class="text-ink">Mirror &amp; Fullscreen:</strong> Flip video horizontally or expand edge-to-edge.</li>
+              <li>• <strong class="text-ink">1-Click OBS Setup (.json):</strong> Saves a ready-to-import 1080p OBS Scene Collection.</li>
+            </ul>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-surface/65 border border-edge space-y-2">
+            <h3 class="text-base font-extrabold text-ink">On Your Phone (Sender)</h3>
+            <ul class="space-y-1.5 text-sm sm:text-base text-muted">
+              <li>• <strong class="text-ink">Switch Camera:</strong> Swap Front and Back cameras live without disconnecting.</li>
+              <li>• <strong class="text-ink">Mute Mic:</strong> Instantly mute/unmute your phone microphone (echo cancellation stays on).</li>
+              <li>• <strong class="text-ink">Flash / Torch:</strong> Turn on rear fill lighting on supported Android devices.</li>
+              <li>• <strong class="text-ink">Keep Screen Awake:</strong> Uses the Screen Wake Lock API so your phone never sleeps mid-call.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Troubleshooting iOS Safari & Android Chrome -->
+      <section class="rounded-3xl bg-card border-2 border-edge p-6 sm:p-8 space-y-4">
+        <h2 class="text-2xl font-extrabold text-ink">
+          Troubleshooting iOS Safari &amp; Android Chrome Permissions
+        </h2>
+        <ul class="space-y-3 text-base sm:text-lg text-muted leading-relaxed">
+          <li>
+            <strong class="text-ink">Camera or mic permission denied on iPhone (Safari):</strong> Tap the <code class="font-mono text-sm">aA</code> / page settings icon in Safari's address bar → <em>Website Settings</em> → set both <strong>Camera</strong> and <strong>Microphone</strong> to <strong>Allow</strong>, then tap <strong>Try Again</strong>.
+          </li>
+          <li>
+            <strong class="text-ink">Permission denied on Android (Chrome):</strong> Tap the padlock or tune icon to the left of the URL → <em>Permissions</em> → toggle <strong>Camera</strong> and <strong>Microphone</strong> on and reload.
+          </li>
+          <li>
+            <strong class="text-ink">"Camera in use by another app":</strong> Close other apps holding the camera (such as Instagram, Snapchat, or another browser tab) before tapping Start Camera &amp; Mic.
+          </li>
+          <li>
+            <strong class="text-ink">HTTPS requirement:</strong> Mobile browsers block camera access on plain HTTP links. Always pair via <code class="font-mono text-sm">https://phonewebcam.pages.dev/</code>.
+          </li>
+        </ul>
+      </section>
+
+      <!-- Wi-Fi Latency Optimization -->
+      <section class="rounded-3xl bg-surface/65 border border-edge p-6 sm:p-8 space-y-4">
+        <h2 class="text-2xl font-extrabold text-ink">
+          Wi-Fi Latency &amp; Video Quality Optimization
+        </h2>
+        <ul class="space-y-2.5 text-base sm:text-lg text-muted leading-relaxed">
+          <li>
+            <strong class="text-ink">Use the same 5 GHz Wi-Fi network:</strong> Keeping both your PC (Wi-Fi or Ethernet) and phone on the same router allows direct LAN WebRTC streaming with single-digit millisecond latency.
+          </li>
+          <li>
+            <strong class="text-ink">Avoid corporate/guest AP isolation &amp; strict VPNs:</strong> Guest Wi-Fi networks sometimes block device-to-device traffic on the same LAN. If pairing stalls at <em>Connecting...</em>, disable VPN temporarily or switch to your primary home Wi-Fi.
+          </li>
+          <li>
+            <strong class="text-ink">Match quality to lighting:</strong> Start at <strong class="text-ink">720p</strong> for effortless battery life and speed on Zoom/Meet, or pick <strong class="text-ink">1080p</strong> with your rear camera when recording in OBS Studio.
+          </li>
+        </ul>
+      </section>
+
+      <!-- Next Step App Guides -->
+      <section class="space-y-3">
+        <h2 class="text-xl font-extrabold text-ink">App-Specific Setup Guides</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <a href="/google-meet" class="p-4 rounded-2xl bg-card border border-edge hover:border-accent font-bold text-ink transition">
+            Google Meet Guide →
+          </a>
+          <a href="/zoom" class="p-4 rounded-2xl bg-card border border-edge hover:border-accent font-bold text-ink transition">
+            Zoom &amp; Teams Guide →
+          </a>
+          <a href="/obs" class="p-4 rounded-2xl bg-card border border-edge hover:border-accent font-bold text-ink transition">
+            OBS Studio Guide →
+          </a>
+        </div>
+      </section>
+    </div>
+  </article>
+</BaseLayout>

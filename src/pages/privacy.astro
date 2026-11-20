@@ -1,0 +1,116 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import { buildBreadcrumbSchema, type BreadcrumbItem } from '@/lib/seo';
+
+const PAGE_TITLE = 'Privacy Policy — PhoneWebcam 100% Peer-to-Peer WebRTC';
+const PAGE_DESC =
+  'Read how PhoneWebcam protects your privacy. All camera and microphone streams run directly peer-to-peer over local Wi-Fi with zero video servers.';
+
+const breadcrumbs: BreadcrumbItem[] = [
+  { label: 'Home', href: '/' },
+  { label: 'Privacy Policy', href: '/privacy' },
+];
+
+const schemas = [buildBreadcrumbSchema(breadcrumbs)];
+---
+
+<BaseLayout
+  title={PAGE_TITLE}
+  description={PAGE_DESC}
+  canonicalPath="/privacy"
+  ogType="article"
+  schemas={schemas}
+>
+  <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+    <Breadcrumbs items={breadcrumbs} />
+
+    <header class="space-y-4 mb-8">
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-ink leading-tight">
+        Privacy Policy
+      </h1>
+      <p class="text-lg text-muted leading-relaxed">
+        PhoneWebcam is engineered from the ground up as a 100% client-side browser utility. There are no user accounts, no cloud video relays, and no backend databases storing your video or audio.
+      </p>
+    </header>
+
+    <div class="rounded-3xl bg-card border-2 border-edge p-6 sm:p-8 space-y-7 text-base sm:text-lg text-muted leading-relaxed">
+      <section class="space-y-2">
+        <h2 class="text-xl sm:text-2xl font-extrabold text-ink">
+          1. Peer-to-Peer WebRTC Video &amp; Audio
+        </h2>
+        <p>
+          When you pair your smartphone and PC on PhoneWebcam, 100% of your camera video and microphone audio travels directly peer-to-peer between your devices over your local Wi-Fi network using WebRTC encryption (DTLS-SRTP). PhoneWebcam never relays, inspects, records, or stores your video frames or audio samples on any server.
+        </p>
+      </section>
+
+      <section class="space-y-2">
+        <h2 class="text-xl sm:text-2xl font-extrabold text-ink">
+          2. Temporary Handshake &amp; STUN Signaling Metadata
+        </h2>
+        <p>
+          To help your phone and PC find each other when you scan the QR code or enter your 4-character room code, the browser exchanges temporary WebRTC session descriptions (SDP) and network addresses (ICE candidates) for roughly 2 seconds via the public PeerJS signaling broker and public Google/Cloudflare STUN servers. Once the peer-to-peer link is established, all media streams directly between your devices. Room codes are generated randomly on your device and expire as soon as you refresh or close the tab.
+        </p>
+      </section>
+
+      <section class="space-y-2">
+        <h2 class="text-xl sm:text-2xl font-extrabold text-ink">
+          3. Local Browser Storage (<code class="font-mono text-base text-ink">localStorage</code>)
+        </h2>
+        <p>
+          PhoneWebcam uses your browser's built-in <code class="font-mono text-sm text-ink">localStorage</code> strictly to remember two interface preferences on your own device:
+        </p>
+        <ul class="list-disc list-inside space-y-1 pl-1">
+          <li><code class="font-mono text-sm text-ink">phonewebcam-theme</code> — your Light or Dark theme selection.</li>
+          <li><code class="font-mono text-sm text-ink">phonewebcam-lang</code> — your chosen interface language out of the 8 supported languages.</li>
+        </ul>
+        <p>
+          You can clear these entries anytime through your browser's site data settings.
+        </p>
+      </section>
+
+      <section class="space-y-2">
+        <h2 class="text-xl sm:text-2xl font-extrabold text-ink">
+          4. Anonymous Site Analytics
+        </h2>
+        <p>
+          Standard pages on PhoneWebcam load Google Tag Manager and Google Analytics 4 asynchronously to understand aggregate traffic patterns (such as popular setup guides and device types) so we can keep improving reliability and browser compatibility. Analytics never has access to your camera stream, microphone audio, or room codes, and Clean OBS View (<code class="font-mono text-sm text-ink">?view=CODE</code>) skips GA4 page-view tracking. You may block analytics scripts at any time using your browser's built-in privacy controls or content blockers without affecting WebRTC pairing.
+        </p>
+      </section>
+
+      <section class="space-y-2">
+        <h2 class="text-xl sm:text-2xl font-extrabold text-ink">
+          5. Open Source Transparency &amp; Contact
+        </h2>
+        <p>
+          PhoneWebcam's full source code is publicly auditable on{' '}
+          <a
+            href="https://github.com/Kishara007/phonewebcam"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="font-bold text-ink underline decoration-accent decoration-2 underline-offset-2"
+          >
+            GitHub
+          </a>
+          . If you have any privacy questions, email Kishara Dilshan directly at{' '}
+          <a
+            href="mailto:kisharadilshan007@gmail.com"
+            class="font-bold text-ink underline decoration-accent decoration-2 underline-offset-2"
+          >
+            kisharadilshan007@gmail.com
+          </a>
+          .
+        </p>
+      </section>
+
+      <div class="pt-4 border-t border-edge">
+        <a
+          href="/"
+          class="btn-accent inline-flex items-center gap-2 min-h-[48px] px-6 py-3 rounded-2xl font-extrabold text-base"
+        >
+          <span>← Back to PhoneWebcam Tool</span>
+        </a>
+      </div>
+    </div>
+  </article>
+</BaseLayout>

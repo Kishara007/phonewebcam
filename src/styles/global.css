@@ -1,0 +1,233 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme='light'] {
+  --bg-primary: #E3FDFD;
+  --bg-surface: #CBF1F5;
+  --bg-subtle: #F2FCFD;
+  --bg-card: #FFFFFF;
+  --border-and-hover: #A6E3E9;
+  --accent-primary: #71C9CE;
+  --accent-hover: #54B5BB;
+  --text-primary: #0F172A;
+  --text-secondary: #334155;
+  color-scheme: light;
+}
+
+html.dark,
+[data-theme='dark'] {
+  --bg-primary: #0B161A;
+  --bg-surface: #112228;
+  --bg-subtle: #0E1D23;
+  --bg-card: #162C33;
+  --border-and-hover: #234650;
+  --accent-primary: #71C9CE;
+  --accent-hover: #A6E3E9;
+  --text-primary: #E3FDFD;
+  --text-secondary: #A6E3E9;
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    background-image: radial-gradient(
+      ellipse 85% 55% at 50% -10%,
+      rgba(255, 255, 255, 0.85),
+      transparent 72%
+    );
+    background-attachment: fixed;
+    color: var(--text-primary);
+    min-height: 100vh;
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    transition: background-color 180ms ease, color 180ms ease;
+  }
+
+  html.dark body {
+    background-image: radial-gradient(
+      ellipse 85% 55% at 50% -10%,
+      rgba(113, 201, 206, 0.09),
+      transparent 70%
+    );
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  summary:focus-visible {
+    outline: 3px solid var(--accent-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* Primary accent buttons: dark ink guarantees WCAG AAA contrast on #71C9CE / #54B5BB / #A6E3E9 */
+.btn-accent {
+  background-color: var(--accent-primary);
+  color: #0F172A;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  transition: background-color 160ms ease, transform 150ms ease, box-shadow 160ms ease;
+}
+
+.btn-accent:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+  box-shadow: 0 4px 12px -2px rgba(84, 181, 187, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+
+.btn-accent:active:not(:disabled) {
+  transform: translateY(0.5px) scale(0.99);
+}
+
+/* Crisp secondary action button for clear visual hierarchy */
+.btn-secondary {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-and-hover);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-subtle);
+  border-color: var(--accent-primary);
+}
+
+.btn-secondary:active:not(:disabled) {
+  transform: translateY(0.5px) scale(0.99);
+}
+
+/* Refined recessed surface well (used for code tiles & segmented track) */
+.surface-subtle {
+  background-color: var(--bg-subtle);
+}
+
+/* Subtle pulsing cyan ring for "Waiting for phone" */
+.pulse-ring-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pulse-ring-wrapper::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 2px solid var(--accent-primary);
+  animation: pwc-pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+@keyframes pwc-pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.85;
+  }
+  75%,
+  100% {
+    transform: scale(1.75);
+    opacity: 0;
+  }
+}
+
+/* Gentle fade + slide transition between Desktop and Phone modes */
+.mode-panel-enter {
+  animation: pwc-mode-enter 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+@keyframes pwc-mode-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Live audio wave bar smoothing */
+.audio-meter-bar {
+  transition: transform 65ms linear, opacity 120ms ease;
+  transform-origin: bottom center;
+  will-change: transform;
+}
+
+/* Studio-grade multi-layered card elevation */
+.tool-card-shadow {
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 12px 32px -8px rgba(15, 23, 42, 0.07),
+    0 24px 60px -16px rgba(84, 181, 187, 0.2);
+}
+
+html.dark .tool-card-shadow {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 20px 56px -12px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(113, 201, 206, 0.14);
+}
+
+/* Clean OBS View Mode (?view=CODE) — instant chrome-free full-viewport black canvas */
+html.obs-clean-view,
+html.obs-clean-view body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  background-color: #000000 !important;
+  background-image: none !important;
+}
+
+html.obs-clean-view [data-chrome] {
+  display: none !important;
+}
+
+html.obs-clean-view main,
+html.obs-clean-view #hero-tool-section,
+html.obs-clean-view #tool-box-wrapper {
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: none !important;
+  min-height: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: #000000 !important;
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .pulse-ring-wrapper::before,
+  .mode-panel-enter {
+    animation: none !important;
+  }
+
+  .audio-meter-bar,
+  .btn-accent,
+  .btn-secondary,
+  body {
+    transition: none !important;
+  }
+}

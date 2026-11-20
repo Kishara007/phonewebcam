@@ -1,0 +1,174 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import {
+  buildBreadcrumbSchema,
+  buildHowToSchema,
+  type BreadcrumbItem,
+} from '@/lib/seo';
+
+const PAGE_TITLE = 'Use Phone as Webcam & Mic for Zoom on PC (Free, No App)';
+const PAGE_DESC =
+  'No webcam on your desktop? Join Zoom calls using your phone camera and microphone wirelessly over Wi-Fi with our free 1-click OBS WebRTC setup.';
+
+const breadcrumbs: BreadcrumbItem[] = [
+  { label: 'Home', href: '/' },
+  { label: 'Zoom', href: '/zoom' },
+];
+
+const steps = [
+  {
+    name: 'Start a pairing room on your PC',
+    text: 'Visit https://phonewebcam.pages.dev/ on your PC to generate a unique 4-character room code and QR code.',
+    url: '/',
+  },
+  {
+    name: 'Download and import the 1-Click OBS JSON',
+    text: 'Click Download 1-Click OBS Setup (.json). In OBS Studio, open Scene Collection -> Import, load the file, switch to the PhoneWebcam collection, and click Start Virtual Camera.',
+  },
+  {
+    name: 'Stream from your phone over Wi-Fi',
+    text: 'Scan the QR code on your iPhone or Android smartphone and tap Start Camera & Mic. Your video and microphone stream straight to your PC over local Wi-Fi.',
+  },
+  {
+    name: 'Select OBS Virtual Camera and VB-Cable in Zoom',
+    text: 'In Zoom Settings -> Video, choose OBS Virtual Camera. To pass your phone mic into Zoom, route OBS audio monitoring to VB-Cable Input and select CABLE Output under Zoom Settings -> Audio -> Microphone.',
+  },
+];
+
+const schemas = [
+  buildBreadcrumbSchema(breadcrumbs),
+  buildHowToSchema({
+    name: 'How to Use Your Phone as a Camera & Mic on Zoom',
+    description: PAGE_DESC,
+    totalTime: 'PT3M',
+    steps,
+  }),
+];
+---
+
+<BaseLayout
+  title={PAGE_TITLE}
+  description={PAGE_DESC}
+  canonicalPath="/zoom"
+  ogType="article"
+  schemas={schemas}
+>
+  <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+    <Breadcrumbs items={breadcrumbs} />
+
+    <header class="space-y-4 mb-8">
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-ink leading-tight">
+        How to Use Your Phone as a Camera &amp; Mic on Zoom
+      </h1>
+      <p class="text-lg text-muted leading-relaxed">
+        If you have no webcam on your desktop and need to join a Zoom call in minutes, your smartphone already has an HD camera and a crisp voice microphone. PhoneWebcam pairs your phone with your PC over Wi-Fi in your browser—no sketchy phone apps, no watermarks, and no cables.
+      </p>
+
+      <div class="pt-2">
+        <a
+          href="/"
+          class="btn-accent inline-flex items-center gap-2.5 min-h-[52px] px-6 py-3 rounded-2xl font-extrabold text-base sm:text-lg shadow-sm"
+        >
+          <span>Launch PhoneWebcam Tool</span>
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </header>
+
+    <div class="space-y-8">
+      <!-- Video Setup for Zoom Desktop & Web -->
+      <section class="rounded-3xl bg-card border-2 border-edge p-6 sm:p-8 space-y-4">
+        <h2 class="text-2xl font-extrabold text-ink">
+          Part 1: Connect Your Phone Camera to Zoom (Desktop &amp; Web)
+        </h2>
+        <ol class="list-decimal list-inside space-y-3 text-base sm:text-lg text-muted leading-relaxed">
+          <li>
+            Open <a href="/" class="font-bold text-ink underline decoration-accent decoration-2 underline-offset-2">PhoneWebcam</a> on your PC and click <strong class="text-ink">Download 1-Click OBS Setup (.json)</strong>. This file already points to your room's clean 1920×1080 feed with audio routing turned on.
+          </li>
+          <li>
+            In <strong class="text-ink">OBS Studio</strong>, open <strong class="text-ink">Scene Collection → Import</strong>, choose the downloaded JSON file, and select the imported PhoneWebcam collection from the Scene Collection menu.
+          </li>
+          <li>
+            Scan the QR code on your PC screen with your phone (or enter the 4-character code) and tap <strong class="text-ink">Start Camera &amp; Mic</strong>.
+          </li>
+          <li>
+            Click <strong class="text-ink">Start Virtual Camera</strong> in the bottom-right Controls dock of OBS Studio.
+          </li>
+          <li>
+            Open <strong class="text-ink">Zoom Desktop</strong> or <strong class="text-ink">Zoom Web</strong>, go to <strong class="text-ink">Settings → Video</strong>, and pick <strong class="text-ink">OBS Virtual Camera</strong>. Your phone video appears live immediately.
+          </li>
+        </ol>
+      </section>
+
+      <!-- Phone Microphone Setup with VB-Cable -->
+      <section class="rounded-3xl bg-card border-2 border-edge p-6 sm:p-8 space-y-4">
+        <h2 class="text-2xl font-extrabold text-ink">
+          Part 2: How to Use Your Phone Mic on PC for Zoom (VB-Cable)
+        </h2>
+        <p class="text-base sm:text-lg text-muted leading-relaxed">
+          Zoom expects a system microphone device for your voice. Because our 1-click OBS JSON enables <strong class="text-ink">Control audio via OBS</strong>, routing your phone microphone into Zoom takes just a one-time setup with the free <strong class="text-ink">VB-Cable</strong> virtual audio driver:
+        </p>
+        <ol class="list-decimal list-inside space-y-3 text-base sm:text-lg text-muted leading-relaxed">
+          <li>
+            Install <strong class="text-ink">VB-Cable</strong> (Windows) or <strong class="text-ink">BlackHole</strong> (macOS) and restart OBS Studio.
+          </li>
+          <li>
+            In OBS Studio, open <strong class="text-ink">Settings → Audio → Advanced → Monitoring Device</strong> and choose <strong class="text-ink">CABLE Input (VB-Audio Virtual Cable)</strong>.
+          </li>
+          <li>
+            Click the gear icon next to the PhoneWebcam audio bar in the OBS Audio Mixer, open <strong class="text-ink">Advanced Audio Properties</strong>, and set <strong class="text-ink">Audio Monitoring</strong> to <strong class="text-ink">Monitor Only (mute output)</strong>.
+          </li>
+          <li>
+            In Zoom <strong class="text-ink">Settings → Audio → Microphone</strong>, select <strong class="text-ink">CABLE Output (VB-Audio Virtual Cable)</strong>. Keep your browser preview tab muted so there is zero echo.
+          </li>
+        </ol>
+      </section>
+
+      <!-- Works Identically in Microsoft Teams & Discord -->
+      <section class="rounded-3xl bg-surface/65 border border-edge p-6 sm:p-8 space-y-4">
+        <h2 class="text-2xl font-extrabold text-ink">
+          Also Works in Microsoft Teams &amp; Discord
+        </h2>
+        <p class="text-base sm:text-lg text-muted leading-relaxed">
+          Once OBS Virtual Camera and VB-Cable are active, the exact same wireless phone camera and microphone work across every desktop call and chat app without re-pairing:
+        </p>
+        <ul class="space-y-2.5 text-base sm:text-lg text-muted leading-relaxed">
+          <li>
+            <strong class="text-ink">Microsoft Teams:</strong> Open <em>Settings → Devices</em>, set Camera to <strong>OBS Virtual Camera</strong>, and set Microphone to <strong>CABLE Output</strong> to use your phone camera for Microsoft Teams effortlessly.
+          </li>
+          <li>
+            <strong class="text-ink">Discord:</strong> Open <em>User Settings → Voice &amp; Video</em>, choose <strong>OBS Virtual Camera</strong> under Video Settings, and pick <strong>CABLE Output</strong> as your Input Device to use your phone as a webcam for Discord voice channels or streams.
+          </li>
+        </ul>
+      </section>
+
+      <!-- Bottom CTA & Related Guides -->
+      <section class="rounded-3xl bg-card border-2 border-edge p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-extrabold text-ink">Joining a Zoom call in a few minutes?</h2>
+          <p class="text-base text-muted mt-1">Generate your pairing code and 1-click OBS JSON right now.</p>
+        </div>
+        <a
+          href="/"
+          class="btn-accent inline-flex items-center justify-center gap-2 min-h-[50px] px-6 py-3 rounded-2xl font-extrabold text-base shrink-0"
+        >
+          <span>Open Live Tool</span>
+          <span aria-hidden="true">→</span>
+        </a>
+      </section>
+
+      <nav aria-label="Related guides" class="flex flex-wrap gap-3 pt-2">
+        <a href="/obs" class="px-4 py-2.5 rounded-xl bg-card hover:bg-surface border border-edge font-bold text-ink transition">
+          OBS Browser Source Guide →
+        </a>
+        <a href="/google-meet" class="px-4 py-2.5 rounded-xl bg-card hover:bg-surface border border-edge font-bold text-ink transition">
+          Google Meet Guide →
+        </a>
+        <a href="/how-to-use" class="px-4 py-2.5 rounded-xl bg-card hover:bg-surface border border-edge font-bold text-ink transition">
+          Troubleshooting &amp; Tips →
+        </a>
+      </nav>
+    </div>
+  </article>
+</BaseLayout>

@@ -1,0 +1,57 @@
+---
+import en from '@/i18n/en.json';
+---
+
+<footer
+  data-chrome
+  class="mt-16 border-t border-edge bg-surface/50"
+>
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-5 text-sm sm:text-base">
+    <div class="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 text-center sm:text-left">
+      <a href="/" class="font-extrabold text-ink text-lg tracking-tight">
+        PhoneWebcam
+      </a>
+      <span class="hidden sm:inline text-muted">•</span>
+      <p class="text-muted font-medium" data-i18n="footer.privacyNote">
+        {en['footer.privacyNote']}
+      </p>
+    </div>
+
+    <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-muted font-semibold">
+      <a href="/how-to-use" class="hover:text-ink transition" data-i18n="nav.howToUse">
+        {en['nav.howToUse']}
+      </a>
+      <a href="/google-meet" class="hover:text-ink transition">Google Meet</a>
+      <a href="/zoom" class="hover:text-ink transition">Zoom</a>
+      <a href="/obs" class="hover:text-ink transition">OBS Studio</a>
+      <a href="/hire-me" class="hover:text-ink transition" data-i18n="nav.hireMe">
+        {en['nav.hireMe']}
+      </a>
+      <a href="/privacy" class="hover:text-ink transition" data-i18n="footer.privacyLink">
+        {en['footer.privacyLink']}
+      </a>
+      <a
+        href="https://github.com/Kishara007/phonewebcam"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="hover:text-ink transition"
+      >
+        GitHub
+      </a>
+    </div>
+  </div>
+
+  <div class="border-t border-edge/60 py-4 text-center text-xs sm:text-sm text-muted">
+    <span data-i18n="footer.madeBy">{en['footer.madeBy']}</span>
+    {' · '}
+    <a
+      href="https://kisharadilshan.gumroad.com/coffee"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="font-semibold text-ink hover:underline"
+      data-i18n="nav.support"
+    >
+      {en['nav.support']}
+    </a>
+  </div>
+</footer>

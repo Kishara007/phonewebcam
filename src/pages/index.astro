@@ -1,0 +1,247 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import WebcamTool from '@/components/WebcamTool';
+import en from '@/i18n/en.json';
+import {
+  buildFaqSchema,
+  buildWebApplicationSchema,
+  type FaqEntry,
+} from '@/lib/seo';
+
+const PAGE_TITLE = 'PhoneWebcam — Use Phone as Webcam & Mic Free in Browser';
+const PAGE_DESC =
+  'Use your phone as a wireless webcam and mic on PC directly in your browser. Zero apps, no sign-up, peer-to-peer WebRTC for Zoom, Meet & OBS.';
+
+const HOMEPAGE_FAQS: Array<FaqEntry & { qKey: keyof typeof en; aKey: keyof typeof en }> = [
+  { qKey: 'below.faq1Q', aKey: 'below.faq1A', question: en['below.faq1Q'], answer: en['below.faq1A'] },
+  { qKey: 'below.faq2Q', aKey: 'below.faq2A', question: en['below.faq2Q'], answer: en['below.faq2A'] },
+  { qKey: 'below.faq3Q', aKey: 'below.faq3A', question: en['below.faq3Q'], answer: en['below.faq3A'] },
+  { qKey: 'below.faq4Q', aKey: 'below.faq4A', question: en['below.faq4Q'], answer: en['below.faq4A'] },
+  { qKey: 'below.faq5Q', aKey: 'below.faq5A', question: en['below.faq5Q'], answer: en['below.faq5A'] },
+  { qKey: 'below.faq6Q', aKey: 'below.faq6A', question: en['below.faq6Q'], answer: en['below.faq6A'] },
+  { qKey: 'below.faq7Q', aKey: 'below.faq7A', question: en['below.faq7Q'], answer: en['below.faq7A'] },
+];
+
+const schemas = [
+  buildWebApplicationSchema(PAGE_DESC),
+  buildFaqSchema(HOMEPAGE_FAQS),
+];
+---
+
+<BaseLayout
+  title={PAGE_TITLE}
+  description={PAGE_DESC}
+  canonicalPath="/"
+  schemas={schemas}
+  pageId="home"
+>
+  <!-- ======================================================================= -->
+  <!-- SECTION 1: FULL-VIEWPORT HERO — Strictly H1 + 1-line Subtitle + Tool    -->
+  <!-- Fills the entire initial viewport cleanly so Section 2 never peeks in   -->
+  <!-- ======================================================================= -->
+  <section
+    id="hero-tool-section"
+    class="min-h-[calc(100svh-3.5rem)] lg:min-h-[calc(100svh-4rem)] flex flex-col justify-center max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10"
+  >
+    <div data-chrome class="text-center max-w-4xl mx-auto mb-6 sm:mb-8">
+      <h1
+        data-i18n="hero.title"
+        class="text-2xl sm:text-3xl lg:text-[2.125rem] font-extrabold tracking-tight text-ink leading-[1.18]"
+      >
+        {en['hero.title']}
+      </h1>
+      <p
+        data-i18n="hero.subtitle"
+        class="mt-2.5 text-sm sm:text-base text-muted font-medium leading-relaxed"
+      >
+        {en['hero.subtitle']}
+      </p>
+    </div>
+
+    <div
+      id="tool-box-wrapper"
+      class="w-full max-w-[820px] mx-auto rounded-3xl bg-card border border-edge/80 p-5 sm:p-7 tool-card-shadow"
+    >
+      <WebcamTool client:load />
+    </div>
+  </section>
+
+  <!-- ======================================================================= -->
+  <!-- SECTION 2+: BELOW THE FOLD — Meet/Zoom/OBS Connect, 3 Steps & FAQ       -->
+  <!-- ======================================================================= -->
+  <div data-chrome class="border-t border-edge/60 bg-card/45">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-16 sm:py-20 space-y-20">
+      <!-- Dedicated Connect to Google Meet, Zoom & OBS Section -->
+      <section aria-labelledby="connect-heading" class="space-y-8">
+        <div class="text-center max-w-2xl mx-auto space-y-2">
+          <h2
+            id="connect-heading"
+            data-i18n="below.connectTitle"
+            class="text-2xl sm:text-3xl font-extrabold tracking-tight text-ink"
+          >
+            {en['below.connectTitle']}
+          </h2>
+          <p
+            data-i18n="below.connectSubtitle"
+            class="text-base text-muted"
+          >
+            {en['below.connectSubtitle']}
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- Google Meet / Zoom Web Card -->
+          <article class="p-6 sm:p-7 rounded-2xl bg-card border border-edge/80 shadow-sm flex flex-col justify-between gap-5">
+            <div class="space-y-3">
+              <div class="inline-flex items-center px-3 py-1 rounded-full surface-subtle border border-edge/70 text-xs font-extrabold uppercase tracking-wider text-ink">
+                01 · <span class="ml-1" data-i18n="tool.quickTabMeet">{en['tool.quickTabMeet']}</span>
+              </div>
+              <h3 data-i18n="below.guideMeetTitle" class="text-xl font-extrabold text-ink">
+                {en['below.guideMeetTitle']}
+              </h3>
+              <ul class="space-y-2 text-sm sm:text-base text-muted leading-relaxed">
+                <li>• <span data-i18n="tool.quickMeetStep1">{en['tool.quickMeetStep1']}</span></li>
+                <li>• <span data-i18n="tool.quickMeetStep2">{en['tool.quickMeetStep2']}</span></li>
+              </ul>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-edge/50">
+              <a
+                href="/google-meet"
+                class="text-sm font-bold text-ink hover:underline"
+              >
+                Google Meet Guide →
+              </a>
+              <span class="text-edge" aria-hidden="true">·</span>
+              <a
+                href="/zoom"
+                class="text-sm font-bold text-ink hover:underline"
+              >
+                Zoom &amp; Teams Guide →
+              </a>
+            </div>
+          </article>
+
+          <!-- OBS Studio + VB-Cable Card -->
+          <article class="p-6 sm:p-7 rounded-2xl bg-card border border-edge/80 shadow-sm flex flex-col justify-between gap-5">
+            <div class="space-y-3">
+              <div class="inline-flex items-center px-3 py-1 rounded-full surface-subtle border border-edge/70 text-xs font-extrabold uppercase tracking-wider text-ink">
+                02 · <span class="ml-1" data-i18n="tool.quickTabObs">{en['tool.quickTabObs']}</span>
+              </div>
+              <h3 data-i18n="below.guideObsTitle" class="text-xl font-extrabold text-ink">
+                {en['below.guideObsTitle']}
+              </h3>
+              <ul class="space-y-2 text-sm sm:text-base text-muted leading-relaxed">
+                <li>• <span data-i18n="tool.quickObsStep1">{en['tool.quickObsStep1']}</span></li>
+                <li>• <span data-i18n="tool.quickObsStep2">{en['tool.quickObsStep2']}</span></li>
+              </ul>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-edge/50">
+              <a
+                href="/obs"
+                class="text-sm font-bold text-ink hover:underline"
+              >
+                OBS Studio Guide →
+              </a>
+              <span class="text-edge" aria-hidden="true">·</span>
+              <a
+                href="/how-to-use"
+                class="text-sm font-bold text-ink hover:underline"
+              >
+                <span data-i18n="below.guideHowTitle">{en['below.guideHowTitle']}</span> →
+              </a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Quick-Start 3-Step Visual Overview -->
+      <section aria-labelledby="steps-heading" class="space-y-8">
+        <h2
+          id="steps-heading"
+          data-i18n="below.stepsTitle"
+          class="text-2xl sm:text-3xl font-extrabold tracking-tight text-ink text-center"
+        >
+          {en['below.stepsTitle']}
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <article class="p-6 rounded-2xl bg-card border border-edge/80 shadow-sm">
+            <div class="w-10 h-10 rounded-xl bg-accent text-[#0F172A] flex items-center justify-center font-mono font-extrabold text-base mb-4">
+              01
+            </div>
+            <h3 data-i18n="below.step1Title" class="text-lg font-extrabold text-ink mb-1.5">
+              {en['below.step1Title']}
+            </h3>
+            <p data-i18n="below.step1Desc" class="text-sm sm:text-base text-muted leading-relaxed">
+              {en['below.step1Desc']}
+            </p>
+          </article>
+
+          <article class="p-6 rounded-2xl bg-card border border-edge/80 shadow-sm">
+            <div class="w-10 h-10 rounded-xl bg-accent text-[#0F172A] flex items-center justify-center font-mono font-extrabold text-base mb-4">
+              02
+            </div>
+            <h3 data-i18n="below.step2Title" class="text-lg font-extrabold text-ink mb-1.5">
+              {en['below.step2Title']}
+            </h3>
+            <p data-i18n="below.step2Desc" class="text-sm sm:text-base text-muted leading-relaxed">
+              {en['below.step2Desc']}
+            </p>
+          </article>
+
+          <article class="p-6 rounded-2xl bg-card border border-edge/80 shadow-sm">
+            <div class="w-10 h-10 rounded-xl bg-accent text-[#0F172A] flex items-center justify-center font-mono font-extrabold text-base mb-4">
+              03
+            </div>
+            <h3 data-i18n="below.step3Title" class="text-lg font-extrabold text-ink mb-1.5">
+              {en['below.step3Title']}
+            </h3>
+            <p data-i18n="below.step3Desc" class="text-sm sm:text-base text-muted leading-relaxed">
+              {en['below.step3Desc']}
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- Helpful FAQ Section (Synchronized with FAQPage JSON-LD) -->
+      <section id="faq" aria-labelledby="faq-heading" class="max-w-3xl mx-auto space-y-6">
+        <h2
+          id="faq-heading"
+          data-i18n="below.faqTitle"
+          class="text-2xl sm:text-3xl font-extrabold tracking-tight text-ink text-center"
+        >
+          {en['below.faqTitle']}
+        </h2>
+
+        <div class="space-y-3">
+          {
+            HOMEPAGE_FAQS.map((faq, index) => (
+              <details
+                class="group rounded-2xl bg-card border border-edge/80 p-5 shadow-sm"
+                open={index === 0}
+              >
+                <summary class="cursor-pointer list-none flex items-center justify-between gap-4 font-bold text-base sm:text-lg text-ink">
+                  <span data-i18n={faq.qKey}>{faq.question}</span>
+                  <span
+                    aria-hidden="true"
+                    class="text-xl font-mono text-muted group-open:rotate-45 transition-transform shrink-0"
+                  >
+                    +
+                  </span>
+                </summary>
+                <p
+                  data-i18n={faq.aKey}
+                  class="mt-3 text-sm sm:text-base text-muted leading-relaxed"
+                >
+                  {faq.answer}
+                </p>
+              </details>
+            ))
+          }
+        </div>
+      </section>
+    </div>
+  </div>
+</BaseLayout>

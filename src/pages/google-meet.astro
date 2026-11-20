@@ -1,0 +1,195 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import {
+  buildBreadcrumbSchema,
+  buildHowToSchema,
+  type BreadcrumbItem,
+} from '@/lib/seo';
+
+const PAGE_TITLE = 'Use Phone as Webcam for Google Meet in Browser (Free)';
+const PAGE_DESC =
+  'Turn your iPhone or Android into a wireless webcam and mic for Google Meet without installing mobile apps. Works directly in Chrome and Edge.';
+
+const breadcrumbs: BreadcrumbItem[] = [
+  { label: 'Home', href: '/' },
+  { label: 'Google Meet', href: '/google-meet' },
+];
+
+const steps = [
+  {
+    name: 'Open PhoneWebcam on your PC browser',
+    text: 'Open https://phonewebcam.pages.dev/ in Chrome or Edge on your desktop or laptop. A scannable QR code and 4-character pairing code appear immediately.',
+    url: '/',
+  },
+  {
+    name: 'Pair your iPhone or Android wirelessly',
+    text: 'Scan the QR code with your phone camera (no mobile app needed) and tap Start Camera & Mic. Your phone video and microphone stream directly over Wi-Fi.',
+  },
+  {
+    name: 'Connect the live feed to Google Meet',
+    text: 'For native webcam input in Google Meet, click Download 1-Click OBS Setup (.json), import the file in OBS Studio, and click Start Virtual Camera, then pick OBS Virtual Camera in Google Meet Settings -> Video. For a quick zero-install option, click Present Now -> A Tab in Google Meet and select your live PhoneWebcam tab.',
+  },
+  {
+    name: 'Route your phone microphone cleanly (optional)',
+    text: 'If your desktop lacks a microphone, route the OBS Browser Source audio through a free virtual cable such as VB-Cable and pick CABLE Output in Google Meet Settings -> Audio.',
+  },
+];
+
+const schemas = [
+  buildBreadcrumbSchema(breadcrumbs),
+  buildHowToSchema({
+    name: 'How to Use Your Phone as a Webcam & Mic for Google Meet',
+    description: PAGE_DESC,
+    totalTime: 'PT2M',
+    steps,
+  }),
+];
+---
+
+<BaseLayout
+  title={PAGE_TITLE}
+  description={PAGE_DESC}
+  canonicalPath="/google-meet"
+  ogType="article"
+  schemas={schemas}
+>
+  <article class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+    <Breadcrumbs items={breadcrumbs} />
+
+    <header class="space-y-4 mb-8">
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-ink leading-tight">
+        Use Your Phone as a Webcam &amp; Mic for Google Meet
+      </h1>
+      <p class="text-lg text-muted leading-relaxed">
+        Laptop webcams often look grainy in dim rooms, and desktop PCs frequently have no camera at all. With PhoneWebcam, you can use your phone as a webcam for Google Meet right inside Chrome or Edge—whether you want to use an iPhone camera on PC Chrome or connect an Android phone on Windows without a USB cable.
+      </p>
+
+      <div class="pt-2">
+        <a
+          href="/"
+          class="btn-accent inline-flex items-center gap-2.5 min-h-[52px] px-6 py-3 rounded-2xl font-extrabold text-base sm:text-lg shadow-sm"
+        >
+          <span>Launch PhoneWebcam Tool</span>
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </header>
+
+    <div class="space-y-8">
+      <!-- Step 1 & 2: Pair Phone -->
+      <section class="rounded-3xl bg-card border-2 border-edge p-6 sm:p-8 space-y-4">
+        <h2 class="text-2xl font-extrabold text-ink">
+          Step 1: Pair Your Phone with Your PC Browser
+        </h2>
+        <ol class="list-decimal list-inside space-y-3 text-base sm:text-lg text-muted leading-relaxed">
+          <li>
+            Open <a href="/" class="font-bold text-ink underline decoration-accent decoration-2 underline-offset-2">PhoneWebcam</a> on your PC in Chrome or Edge. Keep it in <strong class="text-ink">Use on PC (Receiver)</strong> mode.
+          </li>
+          <li>
+            Point your iPhone or Android camera at the on-screen QR code (or type the 4-character code manually on your phone). There is nothing to download from the App Store or Google Play.
+          </li>
+          <li>
+            Pick your preferred lens (<strong class="text-ink">Front</strong> or <strong class="text-ink">Back</strong>) and resolution (<strong class="text-ink">720p</strong> or <strong class="text-ink">1080p</strong>), then tap <strong class="text-ink">Start Camera &amp; Mic</strong>. Your live feed appears on your PC in seconds over local Wi-Fi.
+          </li>
+        </ol>
+      </section>
+
+      <!-- Option A: Native Webcam via OBS Virtual Camera + VB-Cable -->
+      <section class="rounded-3xl bg-card border-2 border-edge p-6 sm:p-8 space-y-4">
+        <div class="inline-flex items-center px-3 py-1 rounded-full bg-surface border border-edge text-xs font-extrabold uppercase tracking-wider text-ink">
+          Recommended for Daily Meetings
+        </div>
+        <h2 class="text-2xl font-extrabold text-ink">
+          Option A: Native Camera &amp; Mic via OBS Virtual Camera + VB-Cable
+        </h2>
+        <p class="text-base sm:text-lg text-muted leading-relaxed">
+          If you want Google Meet to recognize your phone inside your regular participant tile (just like a physical USB webcam), use OBS Studio's built-in Virtual Camera with our automatic 1-click JSON setup:
+        </p>
+        <ol class="list-decimal list-inside space-y-3 text-base sm:text-lg text-muted leading-relaxed">
+          <li>
+            Inside the PhoneWebcam box on your PC, click <strong class="text-ink">Download 1-Click OBS Setup (.json)</strong>. It pre-configures a 1920×1080 Browser Source with <strong class="text-ink">Control audio via OBS</strong> already enabled.
+          </li>
+          <li>
+            Open OBS Studio, click <strong class="text-ink">Scene Collection → Import</strong>, select your downloaded JSON file, switch to the imported collection, and press <strong class="text-ink">Start Virtual Camera</strong>.
+          </li>
+          <li>
+            Join your Google Meet call, click the three-dot menu → <strong class="text-ink">Settings → Video</strong>, and choose <strong class="text-ink">OBS Virtual Camera</strong>.
+          </li>
+          <li>
+            <strong class="text-ink">To send your phone microphone too:</strong> Install free <strong class="text-ink">VB-Cable</strong>, set OBS <strong class="text-ink">Settings → Audio → Monitoring Device</strong> to <em>CABLE Input</em>, enable <em>Monitor Only (mute output)</em> in OBS Advanced Audio Properties for the PhoneWebcam source, and pick <em>CABLE Output</em> as your microphone in Google Meet.
+          </li>
+        </ol>
+      </section>
+
+      <!-- Option B: Instant Zero-Install Tab Present -->
+      <section class="rounded-3xl bg-card border-2 border-edge p-6 sm:p-8 space-y-4">
+        <div class="inline-flex items-center px-3 py-1 rounded-full bg-surface border border-edge text-xs font-extrabold uppercase tracking-wider text-ink">
+          Fastest Zero-Install Method
+        </div>
+        <h2 class="text-2xl font-extrabold text-ink">
+          Option B: Instant Browser Tab Present Mode
+        </h2>
+        <p class="text-base sm:text-lg text-muted leading-relaxed">
+          Using a locked-down work computer where you cannot install OBS? You can still share your phone camera in Google Meet right from Chrome or Edge:
+        </p>
+        <ol class="list-decimal list-inside space-y-3 text-base sm:text-lg text-muted leading-relaxed">
+          <li>
+            Keep your live PhoneWebcam receiver tab open and click the <strong class="text-ink">Fullscreen</strong> button inside the video toolbar for a clean frame.
+          </li>
+          <li>
+            In Google Meet, click <strong class="text-ink">Present now → A tab</strong> and choose the PhoneWebcam tab (ideal for sharing a whiteboard, hardware demo, or close-up document view with your phone's rear lens).
+          </li>
+        </ol>
+      </section>
+
+      <!-- Practical Quality Tips -->
+      <section class="rounded-3xl bg-surface/65 border border-edge p-6 sm:p-8 space-y-4">
+        <h2 class="text-2xl font-extrabold text-ink">
+          Tips for Sharp Video &amp; Low Latency on Google Meet
+        </h2>
+        <ul class="space-y-2.5 text-base sm:text-lg text-muted leading-relaxed">
+          <li>
+            <strong class="text-ink">Use the rear camera when possible:</strong> Your phone's main rear sensor handles indoor lighting dramatically better than the front selfie camera.
+          </li>
+          <li>
+            <strong class="text-ink">Face a soft light source:</strong> Sitting facing a window or desk lamp keeps exposure stable and reduces video compression artifacts.
+          </li>
+          <li>
+            <strong class="text-ink">Stay on 5 GHz Wi-Fi:</strong> Connecting both your phone and PC to the same 5 GHz router band keeps peer-to-peer WebRTC latency down to a few milliseconds.
+          </li>
+          <li>
+            <strong class="text-ink">Prevent auto-lock:</strong> Keep <strong class="text-ink">Keep Screen Awake</strong> enabled on your phone and leave the monitor audio muted on PC to prevent room echo.
+          </li>
+        </ul>
+      </section>
+
+      <!-- Bottom CTA & Related Guides -->
+      <section class="rounded-3xl bg-card border-2 border-edge p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-extrabold text-ink">Ready for your next Google Meet call?</h2>
+          <p class="text-base text-muted mt-1">Pair your phone in 10 seconds directly from your browser.</p>
+        </div>
+        <a
+          href="/"
+          class="btn-accent inline-flex items-center justify-center gap-2 min-h-[50px] px-6 py-3 rounded-2xl font-extrabold text-base shrink-0"
+        >
+          <span>Open Live Tool</span>
+          <span aria-hidden="true">→</span>
+        </a>
+      </section>
+
+      <nav aria-label="Related guides" class="flex flex-wrap gap-3 pt-2">
+        <a href="/zoom" class="px-4 py-2.5 rounded-xl bg-card hover:bg-surface border border-edge font-bold text-ink transition">
+          Zoom &amp; Teams Guide →
+        </a>
+        <a href="/obs" class="px-4 py-2.5 rounded-xl bg-card hover:bg-surface border border-edge font-bold text-ink transition">
+          OBS Browser Source Guide →
+        </a>
+        <a href="/how-to-use" class="px-4 py-2.5 rounded-xl bg-card hover:bg-surface border border-edge font-bold text-ink transition">
+          Complete How-to-Use →
+        </a>
+      </nav>
+    </div>
+  </article>
+</BaseLayout>
