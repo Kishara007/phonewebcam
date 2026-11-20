@@ -1,0 +1,107 @@
+name: Build Windows Desktop Bridge
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-bridge:
+    name: Build PhoneWebcam-Setup.exe (Windows x64)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Rust cargo artifacts
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop-bridge/src-tauri -> target
+
+      - name: Setup MSBuild (Visual Studio 2022)
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build DirectShow Virtual Camera DLL (tshino/softcam x64 Release)
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/tshino/softcam.git "$env:RUNNER_TEMP\softcam"
+          Push-Location "$env:RUNNER_TEMP\softcam"
+          msbuild softcam.sln /p:Configuration=Release /p:Platform=x64 /m
+          Pop-Location
+
+          $dll = Get-ChildItem -Path "$env:RUNNER_TEMP\softcam" -Recurse -Filter "softcam.dll" |
+            Where-Object { $_.FullName -match "x64" } |
+            Select-Object -First 1
+
+          if (-not $dll) {
+            throw "Failed to locate compiled x64 softcam.dll"
+          }
+
+          New-Item -ItemType Directory -Force -Path "desktop-bridge/src-tauri/resources" | Out-Null
+          Copy-Item -Path $dll.FullName -Destination "desktop-bridge/src-tauri/resources/softcam.dll" -Force
+          Write-Host "Bundled softcam.dll ($(([math]::Round($dll.Length / 1KB, 1))) KB) from $($dll.FullName)"
+
+      - name: Install Tauri CLI v2
+        shell: pwsh
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Sync version from Git tag (if tagged release)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tagVer = "${{ github.ref_name }}".TrimStart('v')
+          if ($tagVer -match '^\d+\.\d+\.\d+') {
+            $confPath = "desktop-bridge/src-tauri/tauri.conf.json"
+            $raw = Get-Content $confPath -Raw
+            $updated = $raw -replace '"version"\s*:\s*"[^"]+"', "`"version`": `"$tagVer`""
+            [System.IO.File]::WriteAllText((Resolve-Path $confPath), $updated, (New-Object System.Text.UTF8Encoding $false))
+            Write-Host "Updated tauri.conf.json version to $tagVer"
+          }
+
+      - name: Build Tauri v2 NSIS Installer
+        working-directory: desktop-bridge/src-tauri
+        shell: pwsh
+        run: cargo tauri build --bundles nsis
+
+      - name: Package PhoneWebcam-Setup.exe & Verify Size (< 10 MB)
+        shell: pwsh
+        run: |
+          $nsisDir = "desktop-bridge/src-tauri/target/release/bundle/nsis"
+          $installer = Get-ChildItem -Path $nsisDir -Filter "*-setup.exe" | Select-Object -First 1
+          if (-not $installer) {
+            throw "NSIS installer not found in $nsisDir"
+          }
+
+          New-Item -ItemType Directory -Force -Path "desktop-bridge/installer/output" | Out-Null
+          $outPath = "desktop-bridge/installer/output/PhoneWebcam-Setup.exe"
+          Copy-Item -Path $installer.FullName -Destination $outPath -Force
+
+          $sizeBytes = (Get-Item $outPath).Length
+          $sizeMb = [math]::Round($sizeBytes / 1MB, 2)
+          Write-Host "Built PhoneWebcam-Setup.exe: $sizeMb MB ($sizeBytes bytes)"
+          if ($sizeBytes -gt 10MB) {
+            throw "Installer size ($sizeMb MB) exceeded the 10 MB budget!"
+          }
+
+      - name: Upload PhoneWebcam-Setup.exe Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhoneWebcam-Setup-Windows-x64
+          path: desktop-bridge/installer/output/PhoneWebcam-Setup.exe
+
+      - name: Publish PhoneWebcam-Setup.exe to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: desktop-bridge/installer/output/PhoneWebcam-Setup.exe
+          generate_release_notes: true

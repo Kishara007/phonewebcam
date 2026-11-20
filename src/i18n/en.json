@@ -137,5 +137,7 @@
   "error.relayQuotaFallback": "Could not connect across different networks (the free relay quota may be temporarily reached). Connect both devices to the same Wi-Fi for unlimited direct P2P streaming, then tap Reconnect.",
   "tool.rotateVideo": "Rotate",
   "tool.orientationHorizontal": "Horizontal (16:9)",
-  "tool.orientationVertical": "Vertical (9:16)"
+  "tool.orientationVertical": "Vertical (9:16)",
+  "tool.downloadWindowsDriver": "Download 1-Click Meet/Zoom Driver (6 MB)",
+  "tool.windowsDriverHint": "Windows 10/11 Virtual Camera & Mic bridge — works directly in Meet, Zoom & Teams"
 }

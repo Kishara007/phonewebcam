@@ -16,6 +16,7 @@ export interface HowToStepInput {
   name: string;
   text: string;
   url?: string;
+  image?: string;
 }
 
 export interface SitemapRoute {
@@ -121,6 +122,9 @@ export function buildHowToSchema(params: {
       };
       if (step.url) {
         item.url = toCanonicalUrl(step.url);
+      }
+      if (step.image) {
+        item.image = toCanonicalUrl(step.image);
       }
       return item;
     }),

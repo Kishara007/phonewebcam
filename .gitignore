@@ -23,3 +23,9 @@ pnpm-debug.log*
 # macOS / OS files
 .DS_Store
 Thumbs.db
+
+# desktop-bridge Rust/Tauri build artifacts
+desktop-bridge/src-tauri/target/
+desktop-bridge/src-tauri/resources/*.dll
+desktop-bridge/node_modules/
+desktop-bridge/installer/output/

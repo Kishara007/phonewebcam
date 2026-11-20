@@ -137,5 +137,7 @@
   "error.relayQuotaFallback": "跨网络连接失败（免费中继流量额度可能已用完）。请将手机和电脑连接至同一 Wi-Fi 以享受不限流量的点对点直连，然后点击重新连接。",
   "tool.rotateVideo": "旋转",
   "tool.orientationHorizontal": "横屏 (16:9)",
-  "tool.orientationVertical": "竖屏 (9:16)"
+  "tool.orientationVertical": "竖屏 (9:16)",
+  "tool.downloadWindowsDriver": "下载 Meet/Zoom 一键驱动 (6 MB)",
+  "tool.windowsDriverHint": "Windows 10/11 虚拟摄像头与麦克风桥接器 — 直接支持 Meet、Zoom 与 Teams"
 }

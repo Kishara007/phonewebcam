@@ -137,5 +137,7 @@
   "error.relayQuotaFallback": "Не удалось подключиться из разных сетей (возможно, исчерпан бесплатный лимит реле). Подключите оба устройства к одному Wi-Fi для безлимитного прямого P2P и нажмите «Переподключить».",
   "tool.rotateVideo": "Повернуть",
   "tool.orientationHorizontal": "Горизонт. (16:9)",
-  "tool.orientationVertical": "Вертикал. (9:16)"
+  "tool.orientationVertical": "Вертикал. (9:16)",
+  "tool.downloadWindowsDriver": "Скачать драйвер для Meet/Zoom (6 МБ)",
+  "tool.windowsDriverHint": "Мост виртуальной камеры и микрофона Windows 10/11 — напрямую в Meet, Zoom и Teams"
 }

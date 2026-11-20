@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import ObsVisualStepsStrip from '@/components/ObsVisualStepsStrip.astro';
 import {
   buildBreadcrumbSchema,
   buildHowToSchema,
@@ -99,6 +100,7 @@ const schemas = [
             Open <strong class="text-ink">Zoom Desktop</strong> or <strong class="text-ink">Zoom Web</strong>, go to <strong class="text-ink">Settings → Video</strong>, and pick <strong class="text-ink">OBS Virtual Camera</strong>. Your phone video appears live immediately.
           </li>
         </ol>
+        <ObsVisualStepsStrip />
       </section>
 
       <!-- Phone Microphone Setup with VB-Cable -->

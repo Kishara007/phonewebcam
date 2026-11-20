@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "PhoneWebcam Bridge",
+  "version": "1.0.0",
+  "identifier": "dev.pages.phonewebcam.bridge",
+  "build": {
+    "frontendDist": "../frontend-fallback"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": {
+      "csp": null,
+      "capabilities": ["default"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "resources": [
+      "resources/*"
+    ],
+    "publisher": "Kishara Dilshan",
+    "shortDescription": "1-Click Virtual Camera & Mic bridge for PhoneWebcam on Windows",
+    "longDescription": "Turns your iPhone or Android smartphone into a native Windows 10/11 webcam and microphone for Google Meet, Zoom, Microsoft Teams, and Discord — zero OBS required.",
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "installMode": "perMachine",
+        "compression": "lzma",
+        "displayLanguageSelector": false,
+        "installerHooks": "../installer/hooks.nsh"
+      }
+    }
+  }
+}

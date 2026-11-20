@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import ObsVisualStepsStrip from '@/components/ObsVisualStepsStrip.astro';
 import {
   buildBreadcrumbSchema,
   buildHowToSchema,
@@ -120,6 +121,7 @@ const schemas = [
             <strong class="text-ink">To send your phone microphone too:</strong> Install free <strong class="text-ink">VB-Cable</strong>, set OBS <strong class="text-ink">Settings → Audio → Monitoring Device</strong> to <em>CABLE Input</em>, enable <em>Monitor Only (mute output)</em> in OBS Advanced Audio Properties for the PhoneWebcam source, and pick <em>CABLE Output</em> as your microphone in Google Meet.
           </li>
         </ol>
+        <ObsVisualStepsStrip />
       </section>
 
       <!-- Option B: Instant Zero-Install Tab Present -->

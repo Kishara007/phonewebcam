@@ -137,5 +137,7 @@
   "error.relayQuotaFallback": "Connexion impossible entre réseaux différents (quota gratuit du relais peut-être atteint). Connectez les deux appareils sur le même Wi-Fi pour un flux P2P direct illimité puis cliquez sur Reconnecter.",
   "tool.rotateVideo": "Pivoter",
   "tool.orientationHorizontal": "Horizontal (16:9)",
-  "tool.orientationVertical": "Vertical (9:16)"
+  "tool.orientationVertical": "Vertical (9:16)",
+  "tool.downloadWindowsDriver": "Télécharger le pilote Meet/Zoom (6 Mo)",
+  "tool.windowsDriverHint": "Pont caméra & micro virtuels Windows 10/11 — fonctionne directement dans Meet, Zoom et Teams"
 }

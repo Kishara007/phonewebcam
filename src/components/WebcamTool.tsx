@@ -77,6 +77,9 @@ import {
 
 type ToolMode = 'pc' | 'phone';
 
+const WINDOWS_DRIVER_DOWNLOAD_URL =
+  'https://github.com/Kishara007/phonewebcam/releases/latest/download/PhoneWebcam-Setup.exe';
+
 interface TrackCapabilitiesWithTorch extends MediaTrackCapabilities {
   torch?: boolean;
 }
@@ -1844,45 +1847,64 @@ export const WebcamTool: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Single-Line OBS Action Row (stacks cleanly on narrow tablet right column) */}
-                <div className="pt-4 border-t border-edge/55 flex flex-col sm:flex-row md:flex-col lg:flex-row gap-2.5">
-                  <button
-                    type="button"
-                    onClick={handleDownloadObsJson}
-                    className="btn-accent flex-1 inline-flex items-center justify-center gap-2 min-h-[46px] px-4 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap"
-                  >
-                    {obsDownloaded ? (
-                      <>
-                        <CheckIcon className="w-4 h-4 shrink-0" />
-                        <span>{t('tool.obsDownloaded')}</span>
-                      </>
-                    ) : (
-                      <>
-                        <DownloadIcon className="w-4 h-4 shrink-0" />
-                        <span>{t('tool.downloadObsJson')}</span>
-                      </>
-                    )}
-                  </button>
+                {/* Desktop Virtual Camera Driver + OBS Action Row */}
+                <div className="pt-4 border-t border-edge/55 space-y-2.5">
+                  <div className="space-y-1">
+                    <a
+                      href={WINDOWS_DRIVER_DOWNLOAD_URL}
+                      download="PhoneWebcam-Setup.exe"
+                      rel="noopener noreferrer"
+                      title={t('tool.windowsDriverHint')}
+                      aria-label={`${t('tool.downloadWindowsDriver')} — ${t('tool.windowsDriverHint')}`}
+                      className="btn-secondary w-full inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 rounded-xl font-bold text-sm text-center"
+                    >
+                      <DownloadIcon className="w-4 h-4 shrink-0" />
+                      <span>{t('tool.downloadWindowsDriver')}</span>
+                    </a>
+                    <p className="text-[11px] sm:text-xs text-muted leading-snug">
+                      {t('tool.windowsDriverHint')}
+                    </p>
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={handleCopyObsUrl}
-                    className="btn-secondary inline-flex items-center justify-center gap-2 min-h-[46px] px-4 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap shrink-0"
-                    aria-label={t('tool.copyObsUrl')}
-                    title={getObsCleanViewUrl(roomCode)}
-                  >
-                    {copiedObsUrl ? (
-                      <>
-                        <CheckIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                        <span>{t('tool.obsUrlCopied')}</span>
-                      </>
-                    ) : (
-                      <>
-                        <LinkIcon className="w-4 h-4 shrink-0" />
-                        <span>{t('tool.copyObsUrl')}</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleDownloadObsJson}
+                      className="btn-accent flex-1 inline-flex items-center justify-center gap-2 min-h-[46px] px-4 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap"
+                    >
+                      {obsDownloaded ? (
+                        <>
+                          <CheckIcon className="w-4 h-4 shrink-0" />
+                          <span>{t('tool.obsDownloaded')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <DownloadIcon className="w-4 h-4 shrink-0" />
+                          <span>{t('tool.downloadObsJson')}</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyObsUrl}
+                      className="btn-secondary inline-flex items-center justify-center gap-2 min-h-[46px] px-4 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap shrink-0"
+                      aria-label={t('tool.copyObsUrl')}
+                      title={getObsCleanViewUrl(roomCode)}
+                    >
+                      {copiedObsUrl ? (
+                        <>
+                          <CheckIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          <span>{t('tool.obsUrlCopied')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <LinkIcon className="w-4 h-4 shrink-0" />
+                          <span>{t('tool.copyObsUrl')}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2048,6 +2070,18 @@ export const WebcamTool: React.FC = () => {
                     </>
                   )}
                 </button>
+
+                <a
+                  href={WINDOWS_DRIVER_DOWNLOAD_URL}
+                  download="PhoneWebcam-Setup.exe"
+                  rel="noopener noreferrer"
+                  title={t('tool.windowsDriverHint')}
+                  aria-label={`${t('tool.downloadWindowsDriver')} — ${t('tool.windowsDriverHint')}`}
+                  className="btn-secondary inline-flex items-center gap-1.5 min-h-[42px] px-3.5 py-2 rounded-xl font-bold text-sm"
+                >
+                  <DownloadIcon className="w-4 h-4 shrink-0" />
+                  <span>{t('tool.downloadWindowsDriver')}</span>
+                </a>
 
                 <button
                   type="button"

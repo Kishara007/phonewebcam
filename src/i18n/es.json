@@ -137,5 +137,7 @@
   "error.relayQuotaFallback": "No se pudo conectar entre redes distintas (la cuota gratuita del relay puede haberse agotado). Conecta ambos dispositivos al mismo Wi-Fi para transmisión P2P directa ilimitada y pulsa Reconectar.",
   "tool.rotateVideo": "Rotar",
   "tool.orientationHorizontal": "Horizontal (16:9)",
-  "tool.orientationVertical": "Vertical (9:16)"
+  "tool.orientationVertical": "Vertical (9:16)",
+  "tool.downloadWindowsDriver": "Descargar Driver 1-Clic Meet/Zoom (6 MB)",
+  "tool.windowsDriverHint": "Puente de cámara y micrófono virtual para Windows 10/11 — directo en Meet, Zoom y Teams"
 }

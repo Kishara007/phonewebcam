@@ -137,5 +137,7 @@
   "error.relayQuotaFallback": "Verbindung über verschiedene Netzwerke fehlgeschlagen (kostenloses Relay-Kontingent evtl. ausgeschöpft). Verbinde beide Geräte mit demselben WLAN für unbegrenztes direktes P2P und tippe auf Neu verbinden.",
   "tool.rotateVideo": "Drehen",
   "tool.orientationHorizontal": "Horizontal (16:9)",
-  "tool.orientationVertical": "Vertikal (9:16)"
+  "tool.orientationVertical": "Vertikal (9:16)",
+  "tool.downloadWindowsDriver": "1-Klick Meet/Zoom-Treiber laden (6 MB)",
+  "tool.windowsDriverHint": "Windows 10/11 Virtuelle Kamera- & Mikrofon-Brücke — direkt für Meet, Zoom & Teams"
 }

@@ -137,5 +137,7 @@
   "error.relayQuotaFallback": "別ネットワーク経由での接続に失敗しました（無料リレー上限に達している可能性があります）。同じWi-Fiに接続すれば無制限の直接P2Pで利用できます。接続後、再接続を押してください。",
   "tool.rotateVideo": "回転",
   "tool.orientationHorizontal": "横向き (16:9)",
-  "tool.orientationVertical": "縦向き (9:16)"
+  "tool.orientationVertical": "縦向き (9:16)",
+  "tool.downloadWindowsDriver": "Meet/Zoom用 1クリックドライバ (6 MB)",
+  "tool.windowsDriverHint": "Windows 10/11 仮想カメラ＆マイクブリッジ — Meet・Zoom・Teamsで直接利用可能"
 }

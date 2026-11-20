@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Allow PhoneWebcam production web app to invoke native virtual camera and audio bridge commands",
+  "windows": ["main"],
+  "remote": {
+    "urls": [
+      "https://phonewebcam.pages.dev/*",
+      "https://*.phonewebcam.pages.dev/*"
+    ]
+  },
+  "permissions": ["core:default"]
+}
