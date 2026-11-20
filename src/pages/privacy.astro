@@ -30,7 +30,7 @@ const schemas = [buildBreadcrumbSchema(breadcrumbs)];
         Privacy Policy
       </h1>
       <p class="text-lg text-muted leading-relaxed">
-        PhoneWebcam is engineered from the ground up as a 100% client-side browser utility. There are no user accounts, no cloud video relays, and no backend databases storing your video or audio.
+        PhoneWebcam is engineered from the ground up as a 100% client-side browser utility. There are no user accounts, no video recording servers, and no backend databases storing your video or audio.
       </p>
     </header>
 
@@ -40,17 +40,22 @@ const schemas = [buildBreadcrumbSchema(breadcrumbs)];
           1. Peer-to-Peer WebRTC Video &amp; Audio
         </h2>
         <p>
-          When you pair your smartphone and PC on PhoneWebcam, 100% of your camera video and microphone audio travels directly peer-to-peer between your devices over your local Wi-Fi network using WebRTC encryption (DTLS-SRTP). PhoneWebcam never relays, inspects, records, or stores your video frames or audio samples on any server.
+          When you pair your smartphone and PC on PhoneWebcam over the same Wi-Fi network, 100% of your camera video and microphone audio travels directly peer-to-peer between your devices using mandatory WebRTC end-to-end encryption (DTLS-SRTP). PhoneWebcam never inspects, decodes, records, or stores your video frames or audio samples on any server.
         </p>
       </section>
 
-      <section class="space-y-2">
+      <section class="space-y-3">
         <h2 class="text-xl sm:text-2xl font-extrabold text-ink">
-          2. Temporary Handshake &amp; STUN Signaling Metadata
+          2. Temporary Handshake, STUN Signaling &amp; Network Relays
         </h2>
         <p>
-          To help your phone and PC find each other when you scan the QR code or enter your 4-character room code, the browser exchanges temporary WebRTC session descriptions (SDP) and network addresses (ICE candidates) for roughly 2 seconds via the public PeerJS signaling broker and public Google/Cloudflare STUN servers. Once the peer-to-peer link is established, all media streams directly between your devices. Room codes are generated randomly on your device and expire as soon as you refresh or close the tab.
+          To help your phone and PC find each other when you scan the QR code or enter your 4-character room code, the browser exchanges temporary WebRTC session descriptions (SDP) and network addresses (ICE candidates) for roughly 2 seconds via the public PeerJS signaling broker and public Google STUN servers. Room codes are generated randomly on your device and expire as soon as you refresh or close the tab.
         </p>
+        <ul class="list-disc list-inside space-y-2 pl-1">
+          <li>
+            <strong class="font-bold text-ink">Cross-Network TURN Relays (Optional Fallback):</strong> On the same Wi-Fi network, video and audio stream 100% peer-to-peer directly between your devices with zero relay servers. If a direct connection is blocked (such as 4G/5G cellular data, iCloud Private Relay, or strict office firewalls), PhoneWebcam automatically routes your end-to-end encrypted (DTLS-SRTP) stream through a third-party TURN relay provider (Metered, Turnix, or ExpressTURN). These relay providers only see transient IP routing metadata and never have access to unencrypted video, audio, or recordings.
+          </li>
+        </ul>
       </section>
 
       <section class="space-y-2">
