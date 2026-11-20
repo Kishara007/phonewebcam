@@ -139,5 +139,5 @@
   "tool.orientationHorizontal": "Horizontal (16:9)",
   "tool.orientationVertical": "Vertical (9:16)",
   "tool.downloadWindowsDriver": "Download 1-Click Meet/Zoom Driver (6 MB)",
-  "tool.windowsDriverHint": "Windows 10/11 Virtual Camera & Mic bridge — works directly in Meet, Zoom & Teams"
+  "tool.windowsDriverHint": "Windows 10/11 · Virtual Camera & Mic bridge"
 }

@@ -139,5 +139,5 @@
   "tool.orientationHorizontal": "横屏 (16:9)",
   "tool.orientationVertical": "竖屏 (9:16)",
   "tool.downloadWindowsDriver": "下载 Meet/Zoom 一键驱动 (6 MB)",
-  "tool.windowsDriverHint": "Windows 10/11 虚拟摄像头与麦克风桥接器 — 直接支持 Meet、Zoom 与 Teams"
+  "tool.windowsDriverHint": "Windows 10/11 · 虚拟摄像头与麦克风桥接"
 }

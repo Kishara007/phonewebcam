@@ -1848,20 +1848,20 @@ export const WebcamTool: React.FC = () => {
                 </div>
 
                 {/* Desktop Virtual Camera Driver + OBS Action Row */}
-                <div className="pt-4 border-t border-edge/55 space-y-2.5">
-                  <div className="space-y-1">
+                <div className="pt-4 border-t border-edge/55 space-y-3">
+                  <div className="space-y-1.5">
                     <a
                       href={WINDOWS_DRIVER_DOWNLOAD_URL}
                       download="PhoneWebcam-Setup.exe"
                       rel="noopener noreferrer"
                       title={t('tool.windowsDriverHint')}
                       aria-label={`${t('tool.downloadWindowsDriver')} — ${t('tool.windowsDriverHint')}`}
-                      className="btn-secondary w-full inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 rounded-xl font-bold text-sm text-center"
+                      className="btn-secondary w-full inline-flex items-center justify-center gap-2 min-h-[46px] px-4 py-2.5 rounded-xl font-bold text-sm leading-snug text-center"
                     >
                       <DownloadIcon className="w-4 h-4 shrink-0" />
                       <span>{t('tool.downloadWindowsDriver')}</span>
                     </a>
-                    <p className="text-[11px] sm:text-xs text-muted leading-snug">
+                    <p className="text-xs text-muted text-center leading-normal [text-wrap:balance]">
                       {t('tool.windowsDriverHint')}
                     </p>
                   </div>

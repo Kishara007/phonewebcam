@@ -139,5 +139,5 @@
   "tool.orientationHorizontal": "横向き (16:9)",
   "tool.orientationVertical": "縦向き (9:16)",
   "tool.downloadWindowsDriver": "Meet/Zoom用 1クリックドライバ (6 MB)",
-  "tool.windowsDriverHint": "Windows 10/11 仮想カメラ＆マイクブリッジ — Meet・Zoom・Teamsで直接利用可能"
+  "tool.windowsDriverHint": "Windows 10/11 · 仮想カメラ＆マイク対応"
 }

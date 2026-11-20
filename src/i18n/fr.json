@@ -139,5 +139,5 @@
   "tool.orientationHorizontal": "Horizontal (16:9)",
   "tool.orientationVertical": "Vertical (9:16)",
   "tool.downloadWindowsDriver": "Télécharger le pilote Meet/Zoom (6 Mo)",
-  "tool.windowsDriverHint": "Pont caméra & micro virtuels Windows 10/11 — fonctionne directement dans Meet, Zoom et Teams"
+  "tool.windowsDriverHint": "Windows 10/11 · Caméra & micro virtuels"
 }

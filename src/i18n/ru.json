@@ -139,5 +139,5 @@
   "tool.orientationHorizontal": "Горизонт. (16:9)",
   "tool.orientationVertical": "Вертикал. (9:16)",
   "tool.downloadWindowsDriver": "Скачать драйвер для Meet/Zoom (6 МБ)",
-  "tool.windowsDriverHint": "Мост виртуальной камеры и микрофона Windows 10/11 — напрямую в Meet, Zoom и Teams"
+  "tool.windowsDriverHint": "Windows 10/11 · Виртуальная камера и мик."
 }
