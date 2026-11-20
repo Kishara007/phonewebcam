@@ -134,5 +134,8 @@
   "error.appleVideoStall": "Señal conectada, pero no llegan fotogramas. En iPhone/iPad, comprueba que ambos dispositivos compartan el mismo Wi-Fi, desactiva VPN / Retransmisión privada de iCloud y activa Red local para Safari; luego pulsa Reconectar.",
   "tool.statusLiveRelay": "En directo · Relay",
   "tool.switchingToRelay": "Reintentando vía enlace entre redes...",
-  "error.relayQuotaFallback": "No se pudo conectar entre redes distintas (la cuota gratuita del relay puede haberse agotado). Conecta ambos dispositivos al mismo Wi-Fi para transmisión P2P directa ilimitada y pulsa Reconectar."
+  "error.relayQuotaFallback": "No se pudo conectar entre redes distintas (la cuota gratuita del relay puede haberse agotado). Conecta ambos dispositivos al mismo Wi-Fi para transmisión P2P directa ilimitada y pulsa Reconectar.",
+  "tool.rotateVideo": "Rotar",
+  "tool.orientationHorizontal": "Horizontal (16:9)",
+  "tool.orientationVertical": "Vertical (9:16)"
 }

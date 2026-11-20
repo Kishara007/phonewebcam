@@ -176,3 +176,17 @@ export const ArrowRightIcon: React.FC<IconProps> = ({ className = 'w-5 h-5' }) =
     <path d="m12 5 7 7-7 7" />
   </svg>
 );
+
+export const RotateCwIcon: React.FC<IconProps> = ({ className = 'w-5 h-5' }) => (
+  <svg width="20" height="20" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+    <path d="M21 3v5h-5" />
+  </svg>
+);
+
+export const OrientationIcon: React.FC<IconProps> = ({ className = 'w-5 h-5' }) => (
+  <svg width="20" height="20" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="3" y="6" width="12" height="15" rx="2" />
+    <path d="M15 9h4a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-4" />
+  </svg>
+);

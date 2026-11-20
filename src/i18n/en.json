@@ -134,5 +134,8 @@
   "error.appleVideoStall": "Connected to signaling, but no camera frames arrived. On iPhone/iPad, make sure both devices are on the same Wi-Fi, turn off VPN / iCloud Private Relay, and enable Settings → Privacy & Security → Local Network for Safari, then tap Reconnect.",
   "tool.statusLiveRelay": "Live · Relay",
   "tool.switchingToRelay": "Retrying via cross-network relay...",
-  "error.relayQuotaFallback": "Could not connect across different networks (the free relay quota may be temporarily reached). Connect both devices to the same Wi-Fi for unlimited direct P2P streaming, then tap Reconnect."
+  "error.relayQuotaFallback": "Could not connect across different networks (the free relay quota may be temporarily reached). Connect both devices to the same Wi-Fi for unlimited direct P2P streaming, then tap Reconnect.",
+  "tool.rotateVideo": "Rotate",
+  "tool.orientationHorizontal": "Horizontal (16:9)",
+  "tool.orientationVertical": "Vertical (9:16)"
 }

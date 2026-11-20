@@ -134,5 +134,8 @@
   "error.appleVideoStall": "Connexion établie mais aucune image reçue. Sur iPhone/iPad, vérifiez le même réseau Wi-Fi, désactivez le VPN / Relais privé iCloud et autorisez Réseau local pour Safari, puis cliquez sur Reconnecter.",
   "tool.statusLiveRelay": "En direct · Relais",
   "tool.switchingToRelay": "Nouvelle tentative via relais réseau...",
-  "error.relayQuotaFallback": "Connexion impossible entre réseaux différents (quota gratuit du relais peut-être atteint). Connectez les deux appareils sur le même Wi-Fi pour un flux P2P direct illimité puis cliquez sur Reconnecter."
+  "error.relayQuotaFallback": "Connexion impossible entre réseaux différents (quota gratuit du relais peut-être atteint). Connectez les deux appareils sur le même Wi-Fi pour un flux P2P direct illimité puis cliquez sur Reconnecter.",
+  "tool.rotateVideo": "Pivoter",
+  "tool.orientationHorizontal": "Horizontal (16:9)",
+  "tool.orientationVertical": "Vertical (9:16)"
 }

@@ -1,4 +1,4 @@
-import { getObsCleanViewUrl } from './roomCode';
+import { getObsCleanViewUrl, type ObsViewOptions } from './roomCode';
 
 export interface ObsSceneCollection {
   current_scene: string;
@@ -33,12 +33,18 @@ function makeUuid(): string {
 
 /**
  * Dynamically generates a valid OBS Studio Scene Collection JSON file pre-configured
- * with a 1920x1080 Browser Source pointing to https://phonewebcam.pages.dev/?view=CODE
- * and `reroute_audio: true` ("Control audio via OBS") enabled.
+ * with a Browser Source pointing to https://phonewebcam.pages.dev/?view=CODE
+ * (1920x1080 horizontal or 1080x1920 vertical) and `reroute_audio: true` ("Control audio via OBS").
  */
-export function buildObsSceneCollection(roomCode: string): ObsSceneCollection {
+export function buildObsSceneCollection(
+  roomCode: string,
+  options?: ObsViewOptions
+): ObsSceneCollection {
   const cleanCode = roomCode.toUpperCase();
-  const obsUrl = getObsCleanViewUrl(cleanCode);
+  const isVertical = options?.orientation === 'vertical';
+  const sourceWidth = isVertical ? 1080 : 1920;
+  const sourceHeight = isVertical ? 1920 : 1080;
+  const obsUrl = getObsCleanViewUrl(cleanCode, options);
   const sceneName = `PhoneWebcam (${cleanCode})`;
   const browserSourceName = `PhoneWebcam Feed (${cleanCode})`;
   const browserUuid = makeUuid();
@@ -58,8 +64,8 @@ export function buildObsSceneCollection(roomCode: string): ObsSceneCollection {
         versioned_id: 'browser_source',
         settings: {
           url: obsUrl,
-          width: 1920,
-          height: 1080,
+          width: sourceWidth,
+          height: sourceHeight,
           fps_custom: true,
           fps: 30,
           reroute_audio: true,
@@ -101,7 +107,7 @@ export function buildObsSceneCollection(roomCode: string): ObsSceneCollection {
               visible: true,
               locked: false,
               rot: 0.0,
-              scale_ref: { x: 1920.0, y: 1080.0 },
+              scale_ref: { x: sourceWidth, y: sourceHeight },
               align: 5,
               bounds_type: 2,
               bounds_align: 0,
@@ -116,7 +122,7 @@ export function buildObsSceneCollection(roomCode: string): ObsSceneCollection {
               pos_rel: { x: -1.7777777910232544, y: -1.0 },
               scale: { x: 1.0, y: 1.0 },
               scale_rel: { x: 1.0, y: 1.0 },
-              bounds: { x: 1920.0, y: 1080.0 },
+              bounds: { x: sourceWidth, y: sourceHeight },
               bounds_rel: { x: 3.555555582046509, y: 2.0 },
               scale_filter: 'disable',
               blend_method: 'default',
@@ -198,9 +204,12 @@ export function buildObsSceneCollection(roomCode: string): ObsSceneCollection {
 /**
  * Triggers a client-side file download of the generated OBS Scene Collection .json.
  */
-export function downloadObsSceneCollection(roomCode: string): void {
+export function downloadObsSceneCollection(
+  roomCode: string,
+  options?: ObsViewOptions
+): void {
   const cleanCode = roomCode.toUpperCase();
-  const payload = buildObsSceneCollection(cleanCode);
+  const payload = buildObsSceneCollection(cleanCode, options);
   const blob = new Blob([JSON.stringify(payload, null, 2)], {
     type: 'application/json;charset=utf-8',
   });

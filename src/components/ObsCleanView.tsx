@@ -5,6 +5,7 @@ import {
   getObsRelayPeerId,
   getReceiverPeerId,
   sanitizeRoomCode,
+  type VideoRotation,
 } from '@/lib/roomCode';
 import {
   PEER_OPTIONS,
@@ -24,16 +25,24 @@ import { VolumeOnIcon } from './Icons';
 interface ObsCleanViewProps {
   rawCode: string;
   lang: LanguageCode;
+  rotation?: VideoRotation;
+  mirror?: boolean;
 }
 
 /**
  * Full-viewport 100vw x 100vh zero-chrome black canvas for OBS Browser Source (?view=CODE).
  *
- * Uses STUN-only direct P2P by default (0 TURN quota), and automatically activates Metered TURN
+ * Uses STUN-only direct P2P by default (0 TURN quota), and automatically activates Edge-served TURN
  * fallback ONLY when an incoming phone call requests Stage 2 cross-network relay (`metadata.relayFallback`).
  */
-export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => {
+export const ObsCleanView: React.FC<ObsCleanViewProps> = ({
+  rawCode,
+  lang,
+  rotation = 0,
+  mirror = false,
+}) => {
   const code = sanitizeRoomCode(rawCode);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const peerRef = useRef<Peer | null>(null);
   const callRef = useRef<MediaConnection | null>(null);
@@ -43,6 +52,7 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
 
   const [hasStream, setHasStream] = useState(false);
   const [needsAudioGesture, setNeedsAudioGesture] = useState(false);
+  const [viewportSize, setViewportSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
 
   const attachStream = (stream: MediaStream) => {
     const videoEl = videoRef.current;
@@ -304,6 +314,25 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
     };
   }, [code]);
 
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const sync = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        setViewportSize({ w: rect.width, h: rect.height });
+      }
+    };
+    sync();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', sync);
+      return () => window.removeEventListener('resize', sync);
+    }
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const handleEnableAudio = () => {
     const videoEl = videoRef.current;
     if (!videoEl) return;
@@ -314,13 +343,36 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
       .catch(() => {});
   };
 
+  const isQuarterTurn = rotation === 90 || rotation === 270;
+  const videoStyle: React.CSSProperties = isQuarterTurn
+    ? {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        width: viewportSize.h > 0 ? `${viewportSize.h}px` : '100vh',
+        height: viewportSize.w > 0 ? `${viewportSize.w}px` : '100vw',
+        maxWidth: 'none',
+        maxHeight: 'none',
+        transform: `translate(-50%, -50%)${mirror ? ' scaleX(-1)' : ''} rotate(${rotation}deg)`,
+      }
+    : {
+        transform:
+          mirror || rotation !== 0
+            ? `${mirror ? 'scaleX(-1) ' : ''}${rotation !== 0 ? `rotate(${rotation}deg)` : ''}`.trim()
+            : undefined,
+      };
+
   return (
-    <div className="fixed inset-0 w-screen h-screen bg-black overflow-hidden select-none">
+    <div
+      ref={containerRef}
+      className="fixed inset-0 w-screen h-screen bg-black overflow-hidden select-none"
+    >
       <video
         ref={videoRef}
         autoPlay
         playsInline
-        className="block w-screen h-screen object-cover bg-black"
+        style={videoStyle}
+        className={`block bg-black object-cover ${isQuarterTurn ? '' : 'w-screen h-screen'}`}
       />
 
       {!hasStream && (

@@ -19,7 +19,10 @@ import {
   getReceiverPeerId,
   getSenderPeerId,
   isValidRoomCode,
+  parseVideoRotation,
   sanitizeRoomCode,
+  type VideoOrientation,
+  type VideoRotation,
 } from '@/lib/roomCode';
 import { downloadObsSceneCollection } from '@/lib/obsConfig';
 import {
@@ -62,7 +65,9 @@ import {
   MicOffIcon,
   MirrorIcon,
   MonitorIcon,
+  OrientationIcon,
   RefreshIcon,
+  RotateCwIcon,
   SmartphoneIcon,
   SunAwakeIcon,
   SwitchCameraIcon,
@@ -80,8 +85,10 @@ export const WebcamTool: React.FC = () => {
   const [lang, setLang] = useState<LanguageCode>(DEFAULT_LANG);
   const [hydrated, setHydrated] = useState(false);
 
-  // Clean OBS View (?view=CODE)
+  // Clean OBS View (?view=CODE&rot=90&mirror=1)
   const [obsViewCode, setObsViewCode] = useState<string | null>(null);
+  const [obsViewRotation, setObsViewRotation] = useState<VideoRotation>(0);
+  const [obsViewMirror, setObsViewMirror] = useState<boolean>(false);
 
   // Active Mode
   const [mode, setMode] = useState<ToolMode>('pc');
@@ -94,10 +101,13 @@ export const WebcamTool: React.FC = () => {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [hasVideoFrames, setHasVideoFrames] = useState<boolean>(false);
   const [mirrorVideo, setMirrorVideo] = useState<boolean>(false);
+  const [rotation, setRotation] = useState<VideoRotation>(0);
+  const [viewOrientation, setViewOrientation] = useState<VideoOrientation>('horizontal');
+  const [pcContainerSize, setPcContainerSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const [monitorMuted, setMonitorMuted] = useState<boolean>(true); // Default muted to prevent echo
   const [phoneMicMuted, setPhoneMicMuted] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [resolutionLabel, setResolutionLabel] = useState<string>('');
+  const [videoDims, setVideoDims] = useState<{ w: number; h: number } | null>(null);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [isRelayed, setIsRelayed] = useState<boolean>(false);
   const [pcRetryingRelay, setPcRetryingRelay] = useState<boolean>(false);
@@ -170,6 +180,8 @@ export const WebcamTool: React.FC = () => {
       const sanitized = sanitizeRoomCode(viewParam);
       if (sanitized.length === ROOM_CODE_LENGTH) {
         setObsViewCode(sanitized);
+        setObsViewRotation(parseVideoRotation(params.get('rot')));
+        setObsViewMirror(params.get('mirror') === '1' || params.get('mirror') === 'true');
         setHydrated(true);
         return;
       }
@@ -311,7 +323,7 @@ export const WebcamTool: React.FC = () => {
     }
     setRemoteStream(null);
     setHasVideoFrames(false);
-    setResolutionLabel('');
+    setVideoDims(null);
     setLatencyMs(null);
     setIsRelayed(false);
     setPcRetryingRelay(false);
@@ -463,7 +475,7 @@ export const WebcamTool: React.FC = () => {
               }
               setRemoteStream(null);
               setHasVideoFrames(false);
-              setResolutionLabel('');
+              setVideoDims(null);
               setLatencyMs(null);
               setIsRelayed(false);
               setPcRetryingRelay(false);
@@ -572,7 +584,7 @@ export const WebcamTool: React.FC = () => {
               pcActiveCallRef.current = null;
               setRemoteStream(null);
               setHasVideoFrames(false);
-              setResolutionLabel('');
+              setVideoDims(null);
               setLatencyMs(null);
               setIsRelayed(false);
               setPcRetryingRelay(false);
@@ -747,7 +759,7 @@ export const WebcamTool: React.FC = () => {
         setPcRetryingRelay(false);
         setPcStatus('live');
         setPcErrorKey(null);
-        setResolutionLabel(`${videoEl.videoWidth}×${videoEl.videoHeight}`);
+        setVideoDims({ w: videoEl.videoWidth, h: videoEl.videoHeight });
       }
     };
 
@@ -846,6 +858,31 @@ export const WebcamTool: React.FC = () => {
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
 
+  // Track PC video container dimensions so 90°/270° rotation fills both 16:9 & 9:16 edge-to-edge
+  useEffect(() => {
+    const showVideo =
+      mode === 'pc' && (pcStatus === 'live' || pcStatus === 'connecting' || remoteStream !== null);
+    const el = pcVideoContainerRef.current;
+    if (!showVideo || !el) return;
+
+    const syncSize = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        setPcContainerSize({ w: rect.width, h: rect.height });
+      }
+    };
+
+    syncSize();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', syncSize);
+      return () => window.removeEventListener('resize', syncSize);
+    }
+
+    const ro = new ResizeObserver(syncSize);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [mode, pcStatus, remoteStream, viewOrientation, isFullscreen]);
+
   useEffect(() => {
     const videoEl = phoneVideoRef.current;
     if (!videoEl || !localStream) return;
@@ -903,8 +940,30 @@ export const WebcamTool: React.FC = () => {
     }
   };
 
+  const handleRotateVideo = () => {
+    setRotation((prev) => {
+      const next = (((prev + 90) % 360) as VideoRotation);
+      announce(`${t('tool.rotateVideo')} ${next}°`);
+      return next;
+    });
+  };
+
+  const handleToggleOrientation = () => {
+    setViewOrientation((prev) => {
+      const next: VideoOrientation = prev === 'horizontal' ? 'vertical' : 'horizontal';
+      announce(
+        t(next === 'vertical' ? 'tool.orientationVertical' : 'tool.orientationHorizontal')
+      );
+      return next;
+    });
+  };
+
   const handleCopyObsUrl = async () => {
-    const url = getObsCleanViewUrl(roomCode);
+    const url = getObsCleanViewUrl(roomCode, {
+      rotation,
+      mirror: mirrorVideo,
+      orientation: viewOrientation,
+    });
     try {
       await navigator.clipboard.writeText(url);
       setCopiedObsUrl(true);
@@ -916,7 +975,11 @@ export const WebcamTool: React.FC = () => {
   };
 
   const handleDownloadObsJson = () => {
-    downloadObsSceneCollection(roomCode);
+    downloadObsSceneCollection(roomCode, {
+      rotation,
+      mirror: mirrorVideo,
+      orientation: viewOrientation,
+    });
     setObsDownloaded(true);
     announce(t('tool.obsDownloaded'));
     window.setTimeout(() => setObsDownloaded(false), 2400);
@@ -951,7 +1014,7 @@ export const WebcamTool: React.FC = () => {
     }
     setRemoteStream(null);
     setHasVideoFrames(false);
-    setResolutionLabel('');
+    setVideoDims(null);
     setLatencyMs(null);
     setIsRelayed(false);
     setPcRetryingRelay(false);
@@ -1511,7 +1574,14 @@ export const WebcamTool: React.FC = () => {
 
   // Render Clean OBS View immediately when ?view=CODE is active
   if (obsViewCode) {
-    return <ObsCleanView rawCode={obsViewCode} lang={lang} />;
+    return (
+      <ObsCleanView
+        rawCode={obsViewCode}
+        lang={lang}
+        rotation={obsViewRotation}
+        mirror={obsViewMirror}
+      />
+    );
   }
 
   // Minimal live status indicator (screen-reader live region)
@@ -1579,6 +1649,31 @@ export const WebcamTool: React.FC = () => {
   const activeStatus = mode === 'pc' ? pcStatus : phoneStatus;
   const activeRetryingRelay = mode === 'pc' ? pcRetryingRelay : phoneRetryingRelay;
   const activeIsRelayed = mode === 'pc' ? isRelayed : phoneIsRelayed;
+
+  const isQuarterTurn = rotation === 90 || rotation === 270;
+  const resolutionLabel = videoDims
+    ? isQuarterTurn
+      ? `${videoDims.h}×${videoDims.w}`
+      : `${videoDims.w}×${videoDims.h}`
+    : '';
+
+  const pcVideoStyle: React.CSSProperties = isQuarterTurn
+    ? {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        width: pcContainerSize.h > 0 ? `${pcContainerSize.h}px` : '100%',
+        height: pcContainerSize.w > 0 ? `${pcContainerSize.w}px` : '100%',
+        maxWidth: 'none',
+        maxHeight: 'none',
+        transform: `translate(-50%, -50%)${mirrorVideo ? ' scaleX(-1)' : ''} rotate(${rotation}deg)`,
+      }
+    : {
+        transform:
+          mirrorVideo || rotation !== 0
+            ? `${mirrorVideo ? 'scaleX(-1) ' : ''}${rotation !== 0 ? `rotate(${rotation}deg)` : ''}`.trim()
+            : undefined,
+      };
 
   return (
     <div className="w-full">
@@ -1798,15 +1893,20 @@ export const WebcamTool: React.FC = () => {
             <div className="space-y-4">
               <div
                 ref={pcVideoContainerRef}
-                className="relative w-full aspect-video rounded-2xl overflow-hidden bg-[#060E12] border border-edge"
+                className={`relative rounded-2xl overflow-hidden bg-[#060E12] border border-edge transition-all duration-200 ${
+                  !isFullscreen && viewOrientation === 'vertical'
+                    ? 'w-full max-w-[340px] sm:max-w-[380px] aspect-[9/16] mx-auto'
+                    : 'w-full aspect-video'
+                }`}
               >
                 <video
                   ref={pcVideoRef}
                   autoPlay
                   playsInline
                   muted={monitorMuted}
-                  className={`w-full h-full object-contain bg-black transition-transform duration-150 ${
-                    mirrorVideo ? 'scale-x-[-1]' : ''
+                  style={pcVideoStyle}
+                  className={`object-contain bg-black transition-transform duration-150 ${
+                    isQuarterTurn ? '' : 'w-full h-full'
                   }`}
                 />
 
@@ -1841,12 +1941,44 @@ export const WebcamTool: React.FC = () => {
                     muted={phoneMicMuted}
                     label={t('tool.audioLevel')}
                     mutedLabel={t('tool.phoneMuted')}
+                    compact={viewOrientation === 'vertical'}
                   />
                 </div>
               </div>
 
               {/* Clean Live Control Toolbar */}
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRotateVideo}
+                  aria-pressed={rotation !== 0}
+                  aria-label={`${t('tool.rotateVideo')} (${rotation}°)`}
+                  className={`inline-flex items-center gap-1.5 min-h-[42px] px-3.5 py-2 rounded-xl font-bold text-sm transition ${
+                    rotation !== 0 ? 'btn-accent' : 'btn-secondary'
+                  }`}
+                >
+                  <RotateCwIcon className="w-4 h-4" />
+                  <span>
+                    {rotation === 0 ? t('tool.rotateVideo') : `${t('tool.rotateVideo')} · ${rotation}°`}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleToggleOrientation}
+                  aria-pressed={viewOrientation === 'vertical'}
+                  className={`inline-flex items-center gap-1.5 min-h-[42px] px-3.5 py-2 rounded-xl font-bold text-sm transition ${
+                    viewOrientation === 'vertical' ? 'btn-accent' : 'btn-secondary'
+                  }`}
+                >
+                  <OrientationIcon className="w-4 h-4" />
+                  <span>
+                    {viewOrientation === 'vertical'
+                      ? t('tool.orientationVertical')
+                      : t('tool.orientationHorizontal')}
+                  </span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setMirrorVideo((v) => !v)}

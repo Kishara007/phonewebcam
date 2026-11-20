@@ -79,11 +79,37 @@ export function getPhonePairUrl(code: string): string {
   return `${PRODUCTION_ORIGIN}/?mode=phone&code=${encodeURIComponent(code.toUpperCase())}`;
 }
 
+export type VideoRotation = 0 | 90 | 180 | 270;
+export type VideoOrientation = 'horizontal' | 'vertical';
+
+export interface ObsViewOptions {
+  rotation?: VideoRotation;
+  mirror?: boolean;
+  orientation?: VideoOrientation;
+}
+
+export function parseVideoRotation(raw: string | null | undefined): VideoRotation {
+  const num = Number(raw);
+  if (num === 90 || num === 180 || num === 270) return num;
+  return 0;
+}
+
 /**
- * Returns the Clean OBS Browser Source URL.
+ * Returns the Clean OBS Browser Source URL, preserving optional rotation/mirror/orientation.
  */
-export function getObsCleanViewUrl(code: string): string {
-  return `${PRODUCTION_ORIGIN}/?view=${encodeURIComponent(code.toUpperCase())}`;
+export function getObsCleanViewUrl(code: string, options?: ObsViewOptions): string {
+  const params = new URLSearchParams();
+  params.set('view', code.toUpperCase());
+  if (options?.rotation) {
+    params.set('rot', String(options.rotation));
+  }
+  if (options?.mirror) {
+    params.set('mirror', '1');
+  }
+  if (options?.orientation === 'vertical') {
+    params.set('orient', 'vertical');
+  }
+  return `${PRODUCTION_ORIGIN}/?${params.toString()}`;
 }
 
 /**
