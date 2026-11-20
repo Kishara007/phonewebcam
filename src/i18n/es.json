@@ -129,5 +129,7 @@
   "below.faq7Q": "¿Es privada mi transmisión? ¿PhoneWebcam envía vídeo o audio a algún servidor?",
   "below.faq7A": "Tus flujos de vídeo y audio nunca pasan por ningún servidor de vídeo ni se graban. Un breve enlace de ~2 segundos conecta ambos dispositivos y después el 100% del tráfico WebRTC cifrado viaja directo por tu Wi-Fi local.",
   "below.connectTitle": "Úsalo con Google Meet, Zoom y OBS",
-  "below.connectSubtitle": "Enlaza una vez en el navegador y conéctalo a tu app de videollamadas o streaming."
+  "below.connectSubtitle": "Enlaza una vez en el navegador y conéctalo a tu app de videollamadas o streaming.",
+  "tool.waitingVideoFrames": "Negociando señal de vídeo...",
+  "error.appleVideoStall": "Señal conectada, pero no llegan fotogramas. En iPhone/iPad, comprueba que ambos dispositivos compartan el mismo Wi-Fi, desactiva VPN / Retransmisión privada de iCloud y activa Red local para Safari; luego pulsa Reconectar."
 }

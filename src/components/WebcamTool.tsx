@@ -24,10 +24,14 @@ import {
 import { downloadObsSceneCollection } from '@/lib/obsConfig';
 import {
   PEER_OPTIONS,
+  acquireCameraStream,
+  attachStreamToVideo,
   buildMediaConstraints,
   mapMediaErrorToKey,
   mapPeerErrorToKey,
   measurePeerLatencyMs,
+  patchPeerJsIceQueue,
+  preferSafeVideoCodecs,
   type CameraFacing,
   type ConnectionStatus,
   type PeerControlMessage,
@@ -80,6 +84,7 @@ export const WebcamTool: React.FC = () => {
   const [pcStatus, setPcStatus] = useState<ConnectionStatus>('waiting');
   const [pcErrorKey, setPcErrorKey] = useState<TranslationKey | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [hasVideoFrames, setHasVideoFrames] = useState<boolean>(false);
   const [mirrorVideo, setMirrorVideo] = useState<boolean>(false);
   const [monitorMuted, setMonitorMuted] = useState<boolean>(true); // Default muted to prevent echo
   const [phoneMicMuted, setPhoneMicMuted] = useState<boolean>(false);
@@ -284,6 +289,7 @@ export const WebcamTool: React.FC = () => {
       pcVideoRef.current.srcObject = null;
     }
     setRemoteStream(null);
+    setHasVideoFrames(false);
     setResolutionLabel('');
     setLatencyMs(null);
     setPhoneMicMuted(false);
@@ -374,6 +380,7 @@ export const WebcamTool: React.FC = () => {
 
         peer.on('connection', (conn) => {
           if (cancelled) return;
+          patchPeerJsIceQueue(conn);
 
           conn.on('data', (raw) => {
             if (cancelled || !raw || typeof raw !== 'object') return;
@@ -383,7 +390,10 @@ export const WebcamTool: React.FC = () => {
               obsRelayPeersRef.current.add(conn.peer);
               if (remoteStreamRef.current && !peer.destroyed) {
                 try {
-                  peer.call(conn.peer, remoteStreamRef.current);
+                  const relayCall = peer.call(conn.peer, remoteStreamRef.current, {
+                    sdpTransform: preferSafeVideoCodecs,
+                  });
+                  if (relayCall) patchPeerJsIceQueue(relayCall);
                 } catch {
                   // ignore relay errors
                 }
@@ -407,6 +417,7 @@ export const WebcamTool: React.FC = () => {
                 pcActiveCallRef.current = null;
               }
               setRemoteStream(null);
+              setHasVideoFrames(false);
               setResolutionLabel('');
               setLatencyMs(null);
               setPhoneMicMuted(false);
@@ -428,30 +439,70 @@ export const WebcamTool: React.FC = () => {
 
           pcActiveCallRef.current = call;
           setPcErrorKey(null);
+          setHasVideoFrames(false);
           setPcStatus('connecting');
-          call.answer();
 
-          call.on('stream', (incomingStream) => {
-            if (cancelled) return;
-            setRemoteStream(incomingStream);
-            setPcStatus('live');
+          // CRITICAL FOR APPLE iOS SAFARI:
+          // Patch PeerJS ICE candidate queue BEFORE answering so rapid iOS host/STUN
+          // candidates arriving behind the Offer are queued instead of dropped, and
+          // prioritize VP8 + Constrained Baseline H.264 for universal cross-browser decoding.
+          patchPeerJsIceQueue(call);
+          call.answer(undefined, { sdpTransform: preferSafeVideoCodecs });
+
+          // Collect all live tracks across multiple ontrack/stream events (iOS Safari often
+          // delivers audio first and video second on the same stream reference).
+          const receivedTracks = new Map<string, MediaStreamTrack>();
+          const syncStream = (tracks: MediaStreamTrack[]) => {
+            let changed = false;
+            for (const tr of tracks) {
+              if (tr.readyState !== 'ended' && !receivedTracks.has(tr.id)) {
+                receivedTracks.set(tr.id, tr);
+                changed = true;
+              }
+            }
+            if (!changed || cancelled) return;
+
+            const assembled = new MediaStream(Array.from(receivedTracks.values()));
+            setRemoteStream(assembled);
             setPcErrorKey(null);
 
             obsRelayPeersRef.current.forEach((obsPeerId) => {
               if (!peer.destroyed) {
                 try {
-                  peer.call(obsPeerId, incomingStream);
+                  const relayCall = peer.call(obsPeerId, assembled, {
+                    sdpTransform: preferSafeVideoCodecs,
+                  });
+                  if (relayCall) patchPeerJsIceQueue(relayCall);
                 } catch {
                   // ignore
                 }
               }
             });
+          };
+
+          const rtcPc = call.peerConnection;
+          if (rtcPc) {
+            rtcPc.addEventListener('track', (evt) => {
+              if (cancelled || pcActiveCallRef.current !== call) return;
+              const incoming = evt.streams?.[0]
+                ? evt.streams[0].getTracks()
+                : evt.track
+                  ? [evt.track]
+                  : [];
+              syncStream(incoming);
+            });
+          }
+
+          call.on('stream', (incomingStream) => {
+            if (cancelled || pcActiveCallRef.current !== call || !incomingStream) return;
+            syncStream(incomingStream.getTracks());
           });
 
           const handleDrop = () => {
             if (cancelled || pcActiveCallRef.current !== call) return;
             pcActiveCallRef.current = null;
             setRemoteStream(null);
+            setHasVideoFrames(false);
             setResolutionLabel('');
             setLatencyMs(null);
             setPhoneMicMuted(false);
@@ -465,18 +516,26 @@ export const WebcamTool: React.FC = () => {
             setPcErrorKey('error.networkDrop');
           });
 
-          const rtcPc = call.peerConnection;
           if (rtcPc) {
-            rtcPc.addEventListener('iceconnectionstatechange', () => {
+            const syncIceState = () => {
               if (cancelled || pcActiveCallRef.current !== call) return;
-              const state = rtcPc.iceConnectionState;
-              if (state === 'failed') {
+              const ice = rtcPc.iceConnectionState;
+              const conn = rtcPc.connectionState;
+              if (ice === 'connected' || ice === 'completed' || conn === 'connected') {
+                setPcStatus('live');
+                setPcErrorKey(null);
+              } else if (ice === 'failed' || conn === 'failed') {
                 handleDrop();
-                setPcErrorKey('error.networkDrop');
-              } else if (state === 'disconnected' || state === 'closed') {
+                setPcErrorKey('error.appleVideoStall');
+              } else if (ice === 'closed' || conn === 'closed') {
                 handleDrop();
+              } else if (ice === 'disconnected') {
+                setPcStatus('connecting');
               }
-            });
+            };
+
+            rtcPc.addEventListener('iceconnectionstatechange', syncIceState);
+            rtcPc.addEventListener('connectionstatechange', syncIceState);
           }
         });
 
@@ -513,32 +572,63 @@ export const WebcamTool: React.FC = () => {
     };
   }, [hydrated, obsViewCode, mode, roomCode, pcSessionNonce, teardownPcPeer]);
 
-  // Attach remote stream to Desktop <video> and monitor resolution
+  // Attach remote stream to Desktop <video>, verify decoded frames, and monitor resolution
   useEffect(() => {
     const videoEl = pcVideoRef.current;
     if (!videoEl || !remoteStream) return;
 
-    if (videoEl.srcObject !== remoteStream) {
-      videoEl.srcObject = remoteStream;
-    }
-    videoEl.muted = monitorMuted;
-    videoEl.play().catch(() => {});
+    const detachVideo = attachStreamToVideo(videoEl, remoteStream, monitorMuted);
 
     const updateResolution = () => {
       if (videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+        setHasVideoFrames(true);
+        setPcStatus('live');
+        setPcErrorKey(null);
         setResolutionLabel(`${videoEl.videoWidth}×${videoEl.videoHeight}`);
       }
     };
 
     videoEl.addEventListener('loadedmetadata', updateResolution);
+    videoEl.addEventListener('loadeddata', updateResolution);
+    videoEl.addEventListener('playing', updateResolution);
     videoEl.addEventListener('resize', updateResolution);
     updateResolution();
 
+    // Poll briefly for first decoded video frame (covers Safari/WebKit track unmute delays)
+    const frameCheckId = window.setInterval(() => {
+      if (videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+        updateResolution();
+        window.clearInterval(frameCheckId);
+      } else if (videoEl.paused && videoEl.srcObject) {
+        videoEl.play().catch(() => {});
+      }
+    }, 500);
+
     return () => {
+      window.clearInterval(frameCheckId);
+      detachVideo();
       videoEl.removeEventListener('loadedmetadata', updateResolution);
+      videoEl.removeEventListener('loadeddata', updateResolution);
+      videoEl.removeEventListener('playing', updateResolution);
       videoEl.removeEventListener('resize', updateResolution);
     };
   }, [remoteStream, monitorMuted]);
+
+  // Stall watchdog: if connected/connecting for 12s with 0 decoded frames, surface actionable Apple/Wi-Fi guidance
+  useEffect(() => {
+    if ((!remoteStream && pcStatus !== 'connecting') || hasVideoFrames) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      const videoEl = pcVideoRef.current;
+      if (!videoEl || videoEl.videoWidth === 0) {
+        setPcErrorKey('error.appleVideoStall');
+      }
+    }, 12000);
+
+    return () => window.clearTimeout(timerId);
+  }, [remoteStream, pcStatus, hasVideoFrames]);
 
   useEffect(() => {
     if (pcVideoRef.current) {
@@ -547,7 +637,7 @@ export const WebcamTool: React.FC = () => {
   }, [monitorMuted]);
 
   useEffect(() => {
-    if (pcStatus !== 'live') {
+    if (pcStatus !== 'live' && pcStatus !== 'connecting') {
       setLatencyMs(null);
       return;
     }
@@ -579,11 +669,7 @@ export const WebcamTool: React.FC = () => {
   useEffect(() => {
     const videoEl = phoneVideoRef.current;
     if (!videoEl || !localStream) return;
-    if (videoEl.srcObject !== localStream) {
-      videoEl.srcObject = localStream;
-    }
-    videoEl.muted = true;
-    videoEl.play().catch(() => {});
+    return attachStreamToVideo(videoEl, localStream, true);
   }, [localStream]);
 
   useEffect(() => {
@@ -680,6 +766,7 @@ export const WebcamTool: React.FC = () => {
       pcActiveCallRef.current = null;
     }
     setRemoteStream(null);
+    setHasVideoFrames(false);
     setResolutionLabel('');
     setLatencyMs(null);
     setPhoneMicMuted(false);
@@ -789,9 +876,7 @@ export const WebcamTool: React.FC = () => {
 
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia(
-        buildMediaConstraints(facingMode, quality)
-      );
+      stream = await acquireCameraStream(facingMode, quality);
     } catch (err) {
       setIsStartingCamera(false);
       setPhoneStatus('ready');
@@ -807,6 +892,12 @@ export const WebcamTool: React.FC = () => {
       requestWakeLock();
     }
 
+    // Allow iOS Safari WebKit one frame to bind the camera stream to the preview <video>
+    // so hardware VideoToolbox capture is active before WebRTC encoding starts.
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+
     try {
       const { default: PeerClass } = await import('peerjs');
       const peer = new PeerClass(getSenderPeerId(targetCode), PEER_OPTIONS);
@@ -815,7 +906,27 @@ export const WebcamTool: React.FC = () => {
       const receiverId = getReceiverPeerId(targetCode);
 
       peer.on('open', () => {
-        const dataConn = peer.connect(receiverId, { reliable: true });
+        // 1. Start the media call FIRST with Apple/Chrome-safe SDP codec order + ICE queue patch
+        const call = peer.call(receiverId, stream, {
+          sdpTransform: preferSafeVideoCodecs,
+        });
+        phoneCallRef.current = call;
+
+        if (!call) {
+          setIsStartingCamera(false);
+          setPhoneErrorKey('error.peerUnavailable');
+          setPhoneStatus('disconnected');
+          return;
+        }
+
+        patchPeerJsIceQueue(call);
+
+        // 2. Open lightweight JSON DataConnection (avoids PeerJS binary serializer crash on iOS Safari)
+        const dataConn = peer.connect(receiverId, {
+          reliable: true,
+          serialization: 'json',
+        });
+        patchPeerJsIceQueue(dataConn);
         phoneDataConnRef.current = dataConn;
 
         dataConn.on('open', () => {
@@ -827,16 +938,6 @@ export const WebcamTool: React.FC = () => {
           dataConn.send(msg);
           setIsStartingCamera(false);
         });
-
-        const call = peer.call(receiverId, stream);
-        phoneCallRef.current = call;
-
-        if (!call) {
-          setIsStartingCamera(false);
-          setPhoneErrorKey('error.peerUnavailable');
-          setPhoneStatus('disconnected');
-          return;
-        }
 
         const rtcPc = call.peerConnection;
         if (rtcPc) {
@@ -850,7 +951,7 @@ export const WebcamTool: React.FC = () => {
             } else if (ice === 'failed' || conn === 'failed') {
               setIsStartingCamera(false);
               setPhoneStatus('disconnected');
-              setPhoneErrorKey('error.networkDrop');
+              setPhoneErrorKey('error.appleVideoStall');
             } else if (ice === 'closed' || conn === 'closed') {
               setPhoneStatus('disconnected');
             }
@@ -896,10 +997,18 @@ export const WebcamTool: React.FC = () => {
 
     try {
       const videoConstraints = buildMediaConstraints(nextFacing, quality).video;
-      const replacementStream = await navigator.mediaDevices.getUserMedia({
-        video: videoConstraints,
-        audio: false,
-      });
+      let replacementStream: MediaStream;
+      try {
+        replacementStream = await navigator.mediaDevices.getUserMedia({
+          video: videoConstraints,
+          audio: false,
+        });
+      } catch {
+        replacementStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: nextFacing },
+          audio: false,
+        });
+      }
       const newVideoTrack = replacementStream.getVideoTracks()[0];
       if (!newVideoTrack) throw new Error('No video track');
 
@@ -1133,7 +1242,7 @@ export const WebcamTool: React.FC = () => {
           )}
 
           {/* PAIRING STAGE — Clean 2-column split, zero double-nested boxes */}
-          {pcStatus !== 'live' && (
+          {pcStatus === 'waiting' && !remoteStream && (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-7 md:gap-0 items-center md:divide-x md:divide-edge/60">
               {/* Left: Clean QR Code */}
               <div className="md:col-span-5 md:pr-7 flex flex-col items-center justify-center text-center">
@@ -1259,8 +1368,8 @@ export const WebcamTool: React.FC = () => {
             </div>
           )}
 
-          {/* LIVE VIDEO VIEW (Once Phone Connects) */}
-          {pcStatus === 'live' && (
+          {/* LIVE / CONNECTING VIDEO VIEW (Once Phone Starts Pairing) */}
+          {(pcStatus === 'live' || pcStatus === 'connecting' || remoteStream !== null) && (
             <div className="space-y-4">
               <div
                 ref={pcVideoContainerRef}
@@ -1275,6 +1384,15 @@ export const WebcamTool: React.FC = () => {
                     mirrorVideo ? 'scale-x-[-1]' : ''
                   }`}
                 />
+
+                {!hasVideoFrames && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/45 pointer-events-none">
+                    <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-black/75 border border-white/15 text-sm font-semibold text-[#E3FDFD]">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#71C9CE] animate-pulse" aria-hidden="true" />
+                      <span>{t('tool.waitingVideoFrames')}</span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
                   <div className="flex items-center gap-2">

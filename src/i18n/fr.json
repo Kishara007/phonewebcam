@@ -129,5 +129,7 @@
   "below.faq7Q": "Mon flux vidéo reste-t-il privé ? PhoneWebcam envoie-t-il mes vidéos vers un serveur ?",
   "below.faq7A": "Vos flux vidéo et audio ne passent jamais par un serveur vidéo et ne sont ni enregistrés ni stockés. Après ~2 secondes d'appairage initial, 100% du flux WebRTC chiffré circule directement entre votre téléphone et votre PC sur votre Wi-Fi local.",
   "below.connectTitle": "Compatible Google Meet, Zoom & OBS",
-  "below.connectSubtitle": "Appairez une fois dans le navigateur puis utilisez votre flux dans vos appels."
+  "below.connectSubtitle": "Appairez une fois dans le navigateur puis utilisez votre flux dans vos appels.",
+  "tool.waitingVideoFrames": "Négociation du flux vidéo...",
+  "error.appleVideoStall": "Connexion établie mais aucune image reçue. Sur iPhone/iPad, vérifiez le même réseau Wi-Fi, désactivez le VPN / Relais privé iCloud et autorisez Réseau local pour Safari, puis cliquez sur Reconnecter."
 }

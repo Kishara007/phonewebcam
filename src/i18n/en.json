@@ -129,5 +129,7 @@
   "below.faq7Q": "Is my camera feed private? Does PhoneWebcam send video or audio to a server?",
   "below.faq7A": "Your video and microphone streams never touch a video server and are never recorded or stored. A brief signaling handshake (~2 seconds) introduces your phone and PC, after which 100% of the encrypted WebRTC video and audio travels directly between your two devices over local Wi-Fi.",
   "below.connectTitle": "Use with Google Meet, Zoom & OBS",
-  "below.connectSubtitle": "Pair once in your browser, then connect to any video call or streaming app."
+  "below.connectSubtitle": "Pair once in your browser, then connect to any video call or streaming app.",
+  "tool.waitingVideoFrames": "Negotiating video stream...",
+  "error.appleVideoStall": "Connected to signaling, but no camera frames arrived. On iPhone/iPad, make sure both devices are on the same Wi-Fi, turn off VPN / iCloud Private Relay, and enable Settings → Privacy & Security → Local Network for Safari, then tap Reconnect."
 }

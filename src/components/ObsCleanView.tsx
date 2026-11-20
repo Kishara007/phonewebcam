@@ -6,7 +6,13 @@ import {
   getReceiverPeerId,
   sanitizeRoomCode,
 } from '@/lib/roomCode';
-import { PEER_OPTIONS, type PeerControlMessage } from '@/lib/webrtc';
+import {
+  PEER_OPTIONS,
+  attachStreamToVideo,
+  patchPeerJsIceQueue,
+  preferSafeVideoCodecs,
+  type PeerControlMessage,
+} from '@/lib/webrtc';
 import { translate, type LanguageCode } from '@/i18n';
 import { VolumeOnIcon } from './Icons';
 
@@ -20,8 +26,8 @@ interface ObsCleanViewProps {
  *
  * Dual-mode automatic attachment:
  * 1. Tries claiming `pwc-v1-recv-CODE` directly (when PC preview tab is closed).
- * 2. If `unavailable-id` (PC preview tab is already open!), connects as a relay observer
- *    to `pwc-v1-recv-CODE` and receives the live MediaStream automatically with zero user steps!
+ * 2. If `unavailable-id` (PC preview tab is already open!), connects as a JSON relay observer
+ *    to `pwc-v1-recv-CODE` and receives the live MediaStream automatically with zero user steps.
  */
 export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => {
   const code = sanitizeRoomCode(rawCode);
@@ -30,6 +36,7 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
   const callRef = useRef<MediaConnection | null>(null);
   const relayConnRef = useRef<DataConnection | null>(null);
   const retryTimerRef = useRef<number | null>(null);
+  const videoCleanupRef = useRef<(() => void) | null>(null);
 
   const [hasStream, setHasStream] = useState(false);
   const [needsAudioGesture, setNeedsAudioGesture] = useState(false);
@@ -38,9 +45,8 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
     const videoEl = videoRef.current;
     if (!videoEl) return;
 
-    if (videoEl.srcObject !== stream) {
-      videoEl.srcObject = stream;
-    }
+    videoCleanupRef.current?.();
+    videoCleanupRef.current = attachStreamToVideo(videoEl, stream, false);
 
     // OBS Browser Source routes unmuted audio via reroute_audio=true
     videoEl.muted = false;
@@ -80,6 +86,8 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
     let cancelled = false;
 
     const cleanup = () => {
+      videoCleanupRef.current?.();
+      videoCleanupRef.current = null;
       if (retryTimerRef.current !== null) {
         window.clearTimeout(retryTimerRef.current);
         retryTimerRef.current = null;
@@ -125,11 +133,41 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
         }
       }
       callRef.current = call;
-      call.answer();
+
+      // Patch PeerJS ICE queue BEFORE answering so iOS Safari candidates are never dropped
+      patchPeerJsIceQueue(call);
+      call.answer(undefined, { sdpTransform: preferSafeVideoCodecs });
+
+      const trackMap = new Map<string, MediaStreamTrack>();
+      const pushTracks = (tracks: MediaStreamTrack[]) => {
+        let changed = false;
+        for (const tr of tracks) {
+          if (tr.readyState !== 'ended' && !trackMap.has(tr.id)) {
+            trackMap.set(tr.id, tr);
+            changed = true;
+          }
+        }
+        if (changed && !cancelled) {
+          attachStream(new MediaStream(Array.from(trackMap.values())));
+        }
+      };
+
+      const rtcPc = call.peerConnection;
+      if (rtcPc) {
+        rtcPc.addEventListener('track', (evt) => {
+          if (cancelled) return;
+          const incoming = evt.streams?.[0]
+            ? evt.streams[0].getTracks()
+            : evt.track
+              ? [evt.track]
+              : [];
+          pushTracks(incoming);
+        });
+      }
 
       call.on('stream', (remoteStream) => {
-        if (!cancelled) {
-          attachStream(remoteStream);
+        if (!cancelled && remoteStream) {
+          pushTracks(remoteStream.getTracks());
         }
       });
 
@@ -160,7 +198,11 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
 
       relayPeer.on('open', () => {
         if (cancelled) return;
-        const conn = relayPeer.connect(getReceiverPeerId(code), { reliable: true });
+        const conn = relayPeer.connect(getReceiverPeerId(code), {
+          reliable: true,
+          serialization: 'json',
+        });
+        patchPeerJsIceQueue(conn);
         relayConnRef.current = conn;
 
         conn.on('open', () => {
@@ -169,7 +211,6 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
         });
 
         conn.on('close', () => {
-          // Primary PC tab closed — reclaim primary receiver ID so phone can reconnect directly
           if (!cancelled) {
             setHasStream(false);
             scheduleReconnect(1500);
@@ -216,7 +257,6 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
       peer.on('error', (err: { type?: string }) => {
         if (cancelled) return;
         if (err?.type === 'unavailable-id') {
-          // PC preview tab currently owns the primary receiver ID; attach as relay observer
           startRelayObserver();
         } else {
           scheduleReconnect(3000);

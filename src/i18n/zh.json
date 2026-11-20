@@ -129,5 +129,7 @@
   "below.faq7Q": "我的摄像头画面安全吗？视频或音频会上传到服务器吗？",
   "below.faq7A": "你的音视频流绝不会经过任何视频中转服务器，也不会被录制或保存。仅在配对瞬间进行约 2 秒的轻量信令握手，随后 100% 的加密 WebRTC 音视频均在本地 Wi-Fi 内直接传输。",
   "below.connectTitle": "轻松接入 Google Meet、Zoom 与 OBS",
-  "below.connectSubtitle": "在浏览器配对一次，即可无缝接入常用的视频会议与直播软件。"
+  "below.connectSubtitle": "在浏览器配对一次，即可无缝接入常用的视频会议与直播软件。",
+  "tool.waitingVideoFrames": "正在建立视频流...",
+  "error.appleVideoStall": "已建立配对信令，但尚未收到摄像头画面。在 iPhone/iPad 上请确认手机和电脑位于同一 Wi-Fi，关闭 VPN / iCloud 专用代理，并在「设置 → 隐私与安全性 → 本地网络」中允许 Safari 访问，然后点击重新连接。"
 }

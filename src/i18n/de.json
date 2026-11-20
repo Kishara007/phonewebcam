@@ -129,5 +129,7 @@
   "below.faq7Q": "Bleibt mein Kamerabild privat? Werden Video oder Audio an Server gesendet?",
   "below.faq7A": "Dein Video- und Audiosignal berührt keinen Videoserver und wird niemals gespeichert. Nach einem ~2-sekündigen Handshake fließen 100% der verschlüsselten WebRTC-Daten direkt zwischen Handy und PC im lokalen WLAN.",
   "below.connectTitle": "Mit Google Meet, Zoom & OBS nutzen",
-  "below.connectSubtitle": "Einmal im Browser koppeln und in jeder Videokonferenz- oder Streaming-App nutzen."
+  "below.connectSubtitle": "Einmal im Browser koppeln und in jeder Videokonferenz- oder Streaming-App nutzen.",
+  "tool.waitingVideoFrames": "Videostream wird ausgehandelt...",
+  "error.appleVideoStall": "Verbindung aufgebaut, aber es kommen keine Videobilder an. Stelle auf iPhone/iPad sicher, dass beide Geräte im selben WLAN sind, deaktiviere VPN / iCloud Privat-Relay und aktiviere „Lokales Netzwerk“ für Safari, dann tippe auf Neu verbinden."
 }

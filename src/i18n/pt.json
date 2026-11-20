@@ -129,5 +129,7 @@
   "below.faq7Q": "Minha câmera é privada? O PhoneWebcam envia vídeo ou áudio para algum servidor?",
   "below.faq7A": "Seu vídeo e áudio nunca passam por servidores de mídia e nunca são gravados. Após ~2 segundos de pareamento inicial, 100% da transmissão WebRTC criptografada trafega diretamente entre o celular e o PC no seu Wi-Fi.",
   "below.connectTitle": "Use no Google Meet, Zoom e OBS",
-  "below.connectSubtitle": "Pareie uma vez no navegador e conecte ao seu app de chamadas ou streaming."
+  "below.connectSubtitle": "Pareie uma vez no navegador e conecte ao seu app de chamadas ou streaming.",
+  "tool.waitingVideoFrames": "Negociando fluxo de vídeo...",
+  "error.appleVideoStall": "Pareado, mas nenhum quadro de vídeo chegou. No iPhone/iPad, deixe os dois aparelhos no mesmo Wi-Fi, desative VPN / Retransmissão Privada do iCloud e permita Rede Local para o Safari; depois toque em Reconectar."
 }

@@ -129,5 +129,7 @@
   "below.faq7Q": "映像や音声のプライバシーは安全ですか？サーバーに送信されますか？",
   "below.faq7A": "映像やマイク音声が外部の映像サーバーへ送られたり保存されたりすることは一切ありません。接続時の約2秒間の仲介を除き、暗号化されたWebRTC通信の100%がローカルWi-Fi内でスマホとPC間を直接やり取りします。",
   "below.connectTitle": "Google Meet・Zoom・OBSと連携",
-  "below.connectSubtitle": "ブラウザでペアリングしたら、お好みのビデオ会議や配信アプリですぐに使えます。"
+  "below.connectSubtitle": "ブラウザでペアリングしたら、お好みのビデオ会議や配信アプリですぐに使えます。",
+  "tool.waitingVideoFrames": "映像ストリームを確立中...",
+  "error.appleVideoStall": "接続は成立しましたが映像が届いていません。iPhone/iPadでは同じWi-Fiに接続し、VPNやiCloudプライベートリレーをオフにして、設定→プライバシーとセキュリティ→ローカルネットワークでSafariを許可してから再接続してください。"
 }
