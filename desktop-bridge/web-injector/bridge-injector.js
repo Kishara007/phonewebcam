@@ -4,7 +4,8 @@
  * Injected strictly into https://phonewebcam.pages.dev inside the lightweight Tauri v2
  * Windows Desktop Bridge. Leaves PhoneWebcam's WebRTC engine 100% untouched:
  *   - Observes the live PC Receiver <video> element and its incoming WebRTC MediaStream
- *   - Streams raw RGBA frames via Tauri v2 binary IPC -> Rust -> Softcam DirectShow Virtual Cam
+ *   - Renders onto a fixed 1280x720 HD canvas (multiples of 4, preserving aspect ratio,
+ *     rotation, and mirror) and streams RGBA via Tauri v2 raw binary IPC -> Softcam DirectShow
  *   - Streams raw f32 PCM audio via Tauri v2 binary IPC -> Rust -> Windows WASAPI (VB-Cable)
  */
 (function () {
@@ -14,8 +15,8 @@
     return;
   }
 
-  const MAX_WIDTH = 1280;
-  const MAX_HEIGHT = 720;
+  const OUT_WIDTH = 1280;
+  const OUT_HEIGHT = 720;
   const TARGET_FPS = 30;
   const MIN_FRAME_INTERVAL_MS = 1000 / TARGET_FPS;
 
@@ -25,6 +26,7 @@
   let lastFrameTs = 0;
   let rafId = null;
   let vfcHandle = null;
+  let lastVideoError = '';
 
   let audioCtx = null;
   let audioSource = null;
@@ -33,12 +35,18 @@
   let audioInFlight = false;
 
   const canvas = document.createElement('canvas');
+  canvas.width = OUT_WIDTH;
+  canvas.height = OUT_HEIGHT;
   const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: false });
 
   function getInvoke() {
-    return window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke
-      ? window.__TAURI__.core.invoke
-      : null;
+    if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+      return window.__TAURI__.core.invoke;
+    }
+    if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
+      return window.__TAURI_INTERNALS__.invoke;
+    }
+    return null;
   }
 
   function parseTransform(video) {
@@ -48,17 +56,6 @@
     const rotation = ((rawDeg % 360) + 360) % 360;
     const mirror = /scaleX\(-1\)/i.test(tf);
     return { rotation, mirror };
-  }
-
-  function computeEvenDimensions(srcW, srcH, rotation) {
-    const swapped = rotation === 90 || rotation === 270;
-    let w = swapped ? srcH : srcW;
-    let h = swapped ? srcW : srcH;
-
-    const scale = Math.min(1, MAX_WIDTH / w, MAX_HEIGHT / h);
-    w = Math.max(16, Math.floor((w * scale) / 2) * 2);
-    h = Math.max(16, Math.floor((h * scale) / 2) * 2);
-    return { w, h };
   }
 
   function teardownAudioCapture() {
@@ -112,7 +109,6 @@
         if (!invoke || !audioCtx) return;
 
         const input = evt.inputBuffer.getChannelData(0);
-        // Clone sample buffer before handing across async IPC boundary
         const copy = new Float32Array(input.length);
         copy.set(input);
         const bytes = new Uint8Array(copy.buffer);
@@ -146,7 +142,11 @@
       cancelAnimationFrame(rafId);
       rafId = null;
     }
-    if (activeVideo && vfcHandle !== null && typeof activeVideo.cancelVideoFrameCallback === 'function') {
+    if (
+      activeVideo &&
+      vfcHandle !== null &&
+      typeof activeVideo.cancelVideoFrameCallback === 'function'
+    ) {
       try {
         activeVideo.cancelVideoFrameCallback(vfcHandle);
       } catch (_) {}
@@ -167,28 +167,29 @@
     const invoke = getInvoke();
     if (!invoke) return;
 
+    const srcW = activeVideo.videoWidth;
+    const srcH = activeVideo.videoHeight;
     const { rotation, mirror } = parseTransform(activeVideo);
-    const { w, h } = computeEvenDimensions(activeVideo.videoWidth, activeVideo.videoHeight, rotation);
+    const swapped = rotation === 90 || rotation === 270;
 
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
-    }
+    // Fit incoming frame cleanly inside fixed 1280x720 canvas with zero distortion
+    const visW = swapped ? srcH : srcW;
+    const visH = swapped ? srcW : srcH;
+    const scale = Math.min(OUT_WIDTH / visW, OUT_HEIGHT / visH);
+    const drawW = srcW * scale;
+    const drawH = srcH * scale;
 
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, w, h);
-    ctx.translate(w / 2, h / 2);
+    ctx.fillStyle = '#060E12';
+    ctx.fillRect(0, 0, OUT_WIDTH, OUT_HEIGHT);
+    ctx.translate(OUT_WIDTH / 2, OUT_HEIGHT / 2);
     if (mirror) ctx.scale(-1, 1);
     if (rotation) ctx.rotate((rotation * Math.PI) / 180);
-
-    const swapped = rotation === 90 || rotation === 270;
-    const drawW = swapped ? h : w;
-    const drawH = swapped ? w : h;
     ctx.drawImage(activeVideo, -drawW / 2, -drawH / 2, drawW, drawH);
     ctx.restore();
 
-    const imageData = ctx.getImageData(0, 0, w, h);
+    const imageData = ctx.getImageData(0, 0, OUT_WIDTH, OUT_HEIGHT);
     const rawBytes = new Uint8Array(
       imageData.data.buffer,
       imageData.data.byteOffset,
@@ -199,12 +200,16 @@
     videoInFlight = true;
     invoke('push_video_frame', rawBytes, {
       headers: {
-        'x-width': String(w),
-        'x-height': String(h),
-        'x-fps': String(TARGET_FPS),
+        'x-width': String(OUT_WIDTH),
+        'x-height': String(OUT_HEIGHT),
       },
     })
-      .catch(() => {})
+      .then(() => {
+        lastVideoError = '';
+      })
+      .catch((err) => {
+        lastVideoError = String(err || 'IPC error');
+      })
       .finally(() => {
         videoInFlight = false;
       });
@@ -244,7 +249,6 @@
 
     for (const v of videos) {
       if (v.srcObject instanceof MediaStream && v.videoWidth > 0 && v.videoHeight > 0) {
-        // Prefer remote WebRTC stream (PC Receiver) over local camera preview
         candidate = v;
         break;
       }
@@ -321,18 +325,26 @@
     pill.appendChild(vbBtn);
     document.body.appendChild(pill);
 
-    setInterval(() => {
+    const pollStatus = () => {
       const invoke = getInvoke();
-      if (!invoke) return;
+      if (!invoke) {
+        text.textContent = 'Bridge IPC Unavailable';
+        dot.style.background = '#F43F5E';
+        return;
+      }
       invoke('get_bridge_status')
         .then((st) => {
           const camLabel = st.camera_streaming
-            ? `Virtual Cam Live (${st.width}×${st.height})`
+            ? st.client_connected
+              ? `Virtual Cam Live (${st.width}×${st.height} · In Use)`
+              : `Virtual Cam Live (${st.width}×${st.height})`
             : st.camera_driver_ready
-              ? 'Virtual Cam Ready'
+              ? `Virtual Cam Ready (${st.width}×${st.height})`
               : 'Virtual Cam Driver Missing';
           const micLabel = st.audio_cable_detected ? 'Mic: VB-Cable' : 'Mic: No VB-Cable';
-          text.textContent = `${camLabel} · ${micLabel}`;
+          text.textContent = lastVideoError
+            ? `${camLabel} · ${lastVideoError}`
+            : `${camLabel} · ${micLabel}`;
           dot.style.background = st.camera_streaming
             ? '#34D399'
             : st.camera_driver_ready
@@ -340,8 +352,14 @@
               : '#F59E0B';
           vbBtn.style.display = st.audio_cable_detected ? 'none' : 'inline-block';
         })
-        .catch(() => {});
-    }, 1500);
+        .catch((err) => {
+          text.textContent = `Bridge Error: ${String(err || 'ACL denied').slice(0, 60)}`;
+          dot.style.background = '#F43F5E';
+        });
+    };
+
+    pollStatus();
+    setInterval(pollStatus, 1500);
   }
 
   window.addEventListener('DOMContentLoaded', () => {

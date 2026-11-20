@@ -20,6 +20,7 @@ pub struct BridgeState {
 struct BridgeStatus {
     camera_driver_ready: bool,
     camera_streaming: bool,
+    client_connected: bool,
     width: u32,
     height: u32,
     frames_sent: u64,
@@ -41,15 +42,14 @@ fn push_video_frame(request: Request<'_>, state: State<'_, BridgeState>) -> Resu
         return Err("Expected raw RGBA frame bytes".into());
     };
 
-    let width = parse_header_u32(&request, "x-width", 0);
-    let height = parse_header_u32(&request, "x-height", 0);
-    let fps = parse_header_u32(&request, "x-fps", 30).clamp(15, 60) as f32;
+    let width = parse_header_u32(&request, "x-width", virtual_cam::VIRTUAL_CAM_WIDTH);
+    let height = parse_header_u32(&request, "x-height", virtual_cam::VIRTUAL_CAM_HEIGHT);
 
     let mut cam = state
         .camera
         .lock()
         .map_err(|_| "Virtual camera lock poisoned".to_string())?;
-    cam.push_rgba_frame(bytes, width, height, fps)
+    cam.push_rgba_frame(bytes, width, height)
 }
 
 #[tauri::command]
@@ -66,7 +66,8 @@ fn push_audio_chunk(request: Request<'_>, state: State<'_, BridgeState>) -> Resu
 #[tauri::command]
 fn stop_virtual_devices(state: State<'_, BridgeState>) -> Result<(), String> {
     if let Ok(mut cam) = state.camera.lock() {
-        cam.stop();
+        // Keep the DirectShow camera alive on a dark standby frame so Meet/Zoom never drops it.
+        cam.send_standby_frame();
     }
     state.audio.clear();
     Ok(())
@@ -74,17 +75,25 @@ fn stop_virtual_devices(state: State<'_, BridgeState>) -> Result<(), String> {
 
 #[tauri::command]
 fn get_bridge_status(state: State<'_, BridgeState>) -> BridgeStatus {
-    let (camera_driver_ready, camera_streaming, width, height, frames_sent) =
+    let (camera_driver_ready, camera_streaming, client_connected, width, height, frames_sent) =
         if let Ok(cam) = state.camera.lock() {
             let (w, h) = cam.dimensions();
-            (cam.is_driver_ready(), cam.is_streaming(), w, h, cam.frames_sent())
+            (
+                cam.is_driver_ready(),
+                cam.is_streaming(),
+                cam.is_client_connected(),
+                w,
+                h,
+                cam.frames_sent(),
+            )
         } else {
-            (false, false, 0, 0, 0)
+            (false, false, false, 0, 0, 0)
         };
 
     BridgeStatus {
         camera_driver_ready,
         camera_streaming,
+        client_connected,
         width,
         height,
         frames_sent,

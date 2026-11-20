@@ -5,9 +5,18 @@
   "windows": ["main"],
   "remote": {
     "urls": [
+      "https://phonewebcam.pages.dev",
       "https://phonewebcam.pages.dev/*",
+      "https://*.phonewebcam.pages.dev",
       "https://*.phonewebcam.pages.dev/*"
     ]
   },
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "allow-push-video-frame",
+    "allow-push-audio-chunk",
+    "allow-stop-virtual-devices",
+    "allow-get-bridge-status",
+    "allow-open-vbcable-setup"
+  ]
 }
