@@ -131,5 +131,8 @@
   "below.connectTitle": "Use with Google Meet, Zoom & OBS",
   "below.connectSubtitle": "Pair once in your browser, then connect to any video call or streaming app.",
   "tool.waitingVideoFrames": "Negotiating video stream...",
-  "error.appleVideoStall": "Connected to signaling, but no camera frames arrived. On iPhone/iPad, make sure both devices are on the same Wi-Fi, turn off VPN / iCloud Private Relay, and enable Settings → Privacy & Security → Local Network for Safari, then tap Reconnect."
+  "error.appleVideoStall": "Connected to signaling, but no camera frames arrived. On iPhone/iPad, make sure both devices are on the same Wi-Fi, turn off VPN / iCloud Private Relay, and enable Settings → Privacy & Security → Local Network for Safari, then tap Reconnect.",
+  "tool.statusLiveRelay": "Live · Relay",
+  "tool.switchingToRelay": "Retrying via cross-network relay...",
+  "error.relayQuotaFallback": "Could not connect across different networks (the free relay quota may be temporarily reached). Connect both devices to the same Wi-Fi for unlimited direct P2P streaming, then tap Reconnect."
 }

@@ -245,6 +245,21 @@ Cloudflare Pages automatically applies:
 - `public/_headers` — enforces `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, WebRTC `Permissions-Policy: camera=(self), microphone=(self), display-capture=(self), fullscreen=(self), screen-wake-lock=(self)`, and 1-year `immutable` caching on `/_astro/*`.
 - `public/_redirects` — maps `/c` and `/phone` to `/?mode=phone` (`302`).
 - `dist/sitemap.xml` — flat, Google Search Console–friendly XML sitemap (no `sitemap-index.xml`) referenced by `public/robots.txt`.
+- `functions/api/ice-servers.ts` — optional edge endpoint serving dynamic STUN + TURN credentials so **iPhones on 4G/5G cellular data, different Wi-Fi networks, iCloud Private Relay, or strict routers** connect seamlessly while same-Wi-Fi devices continue using direct local LAN P2P (0 TURN bytes).
+
+### Enable Cross-Network & iPhone 4G/5G Support (3-Provider Smart TURN Fallback)
+
+Same-Wi-Fi connections work out of the box with zero configuration (**Stage 1 STUN-only**, `0` TURN bytes used). To also support **different networks (iPhone 4G/5G cellular ↔ PC broadband)**, **iCloud Private Relay**, and **Windows PCs without Bonjour mDNS**, configure any or all 3 free TURN providers in **Cloudflare Pages → Settings → Environment variables** (zero secrets are ever committed to Git; for local Wrangler testing copy `.dev.vars.example` to gitignored `.dev.vars`):
+
+`/api/ice-servers?mode=relay` activates **only one provider at a time** (keeping iOS Safari ICE fast) in strict priority order and hops automatically (`?skip=metered`, etc.) if a provider fails or reaches its free quota:
+
+| Priority | Provider | Environment Variables | Notes |
+|---|---|---|---|
+| **1** | **Metered** ([metered.ca](https://www.metered.ca/)) | `METERED_APP_NAME`, `METERED_API_KEY` *(or static `METERED_USERNAME`, `METERED_PASSWORD`)* | Fetches expiring dynamic credentials with a 2s edge timeout; falls through automatically if quota is exceeded. |
+| **2** | **Turnix** ([turnix.io](https://turnix.io/)) | `TURNIX_API_TOKEN` **or** `TURNIX_USERNAME`, `TURNIX_PASSWORD`, optional `TURNIX_URL` *(defaults to `turn:turn.turnix.io:3478`)* | Supports both Turnix dynamic API token (`POST /api/v1/credentials/ice`) and static TURN credentials. |
+| **3** | **ExpressTURN** ([expressturn.com](https://www.expressturn.com/)) | `EXPRESSTURN_USERNAME`, `EXPRESSTURN_PASSWORD` | Serves `turn:free.expressturn.com:3478` (UDP & TCP) + `turns:free.expressturn.com:443?transport=tcp`. |
+
+If no TURN variables are set (or all configured providers are temporarily exhausted), `/api/ice-servers` safely returns STUN-only (`hasTurn: false`, `provider: "stun-only"`) and the UI gracefully directs users to connect on the same Wi-Fi for unlimited direct P2P streaming.
 
 ---
 

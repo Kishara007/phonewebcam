@@ -1,0 +1,26 @@
+# Local Cloudflare Pages / Wrangler environment variables for Stage 2 TURN relay fallback.
+# Copy this file to `.dev.vars` (gitignored) for local `npx wrangler pages dev dist` testing,
+# or set these exact variables in Cloudflare Pages -> Settings -> Environment Variables.
+#
+# NEVER commit `.dev.vars` or real credentials to Git!
+# Leave all variables blank to run 100% STUN-only direct local Wi-Fi P2P.
+
+# Priority 1 — Metered (https://www.metered.ca/) — 20 GB/month free
+# Recommended: dynamic expiring credentials via Metered API
+METERED_APP_NAME=
+METERED_API_KEY=
+# Optional alternative if using static Metered TURN credentials instead of API key:
+# METERED_USERNAME=
+# METERED_PASSWORD=
+
+# Priority 2 — Turnix (https://turnix.io/)
+# Option A: Turnix dynamic API token (POST https://turnix.io/api/v1/credentials/ice)
+TURNIX_API_TOKEN=
+# Option B: Static Turnix credentials (TURNIX_URL defaults to turn:turn.turnix.io:3478)
+TURNIX_USERNAME=
+TURNIX_PASSWORD=
+TURNIX_URL=turn:turn.turnix.io:3478
+
+# Priority 3 — ExpressTURN (https://www.expressturn.com/) — 1,000 GB/month free
+EXPRESSTURN_USERNAME=
+EXPRESSTURN_PASSWORD=

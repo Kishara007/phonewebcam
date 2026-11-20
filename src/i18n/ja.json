@@ -131,5 +131,8 @@
   "below.connectTitle": "Google Meet・Zoom・OBSと連携",
   "below.connectSubtitle": "ブラウザでペアリングしたら、お好みのビデオ会議や配信アプリですぐに使えます。",
   "tool.waitingVideoFrames": "映像ストリームを確立中...",
-  "error.appleVideoStall": "接続は成立しましたが映像が届いていません。iPhone/iPadでは同じWi-Fiに接続し、VPNやiCloudプライベートリレーをオフにして、設定→プライバシーとセキュリティ→ローカルネットワークでSafariを許可してから再接続してください。"
+  "error.appleVideoStall": "接続は成立しましたが映像が届いていません。iPhone/iPadでは同じWi-Fiに接続し、VPNやiCloudプライベートリレーをオフにして、設定→プライバシーとセキュリティ→ローカルネットワークでSafariを許可してから再接続してください。",
+  "tool.statusLiveRelay": "ライブ · リレー",
+  "tool.switchingToRelay": "別ネットワーク用リレーで再接続中...",
+  "error.relayQuotaFallback": "別ネットワーク経由での接続に失敗しました（無料リレー上限に達している可能性があります）。同じWi-Fiに接続すれば無制限の直接P2Pで利用できます。接続後、再接続を押してください。"
 }

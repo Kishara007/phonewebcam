@@ -131,5 +131,8 @@
   "below.connectTitle": "Mit Google Meet, Zoom & OBS nutzen",
   "below.connectSubtitle": "Einmal im Browser koppeln und in jeder Videokonferenz- oder Streaming-App nutzen.",
   "tool.waitingVideoFrames": "Videostream wird ausgehandelt...",
-  "error.appleVideoStall": "Verbindung aufgebaut, aber es kommen keine Videobilder an. Stelle auf iPhone/iPad sicher, dass beide Geräte im selben WLAN sind, deaktiviere VPN / iCloud Privat-Relay und aktiviere „Lokales Netzwerk“ für Safari, dann tippe auf Neu verbinden."
+  "error.appleVideoStall": "Verbindung aufgebaut, aber es kommen keine Videobilder an. Stelle auf iPhone/iPad sicher, dass beide Geräte im selben WLAN sind, deaktiviere VPN / iCloud Privat-Relay und aktiviere „Lokales Netzwerk“ für Safari, dann tippe auf Neu verbinden.",
+  "tool.statusLiveRelay": "Live · Relay",
+  "tool.switchingToRelay": "Verbinde über netzwerkübergreifendes Relay...",
+  "error.relayQuotaFallback": "Verbindung über verschiedene Netzwerke fehlgeschlagen (kostenloses Relay-Kontingent evtl. ausgeschöpft). Verbinde beide Geräte mit demselben WLAN für unbegrenztes direktes P2P und tippe auf Neu verbinden."
 }

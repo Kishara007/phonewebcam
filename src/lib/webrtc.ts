@@ -2,21 +2,17 @@ import type { PeerOptions } from 'peerjs';
 import type { TranslationKey } from '@/i18n';
 
 /**
- * Public STUN servers for NAT/LAN traversal so 100% of video & audio streams
- * directly peer-to-peer over local Wi-Fi without cloud video relay costs.
- * Note: Intentionally omits `iceCandidatePoolSize` to prevent iOS Safari WebKit
- * from pre-gathering stale mDNS-only candidates before media tracks settle.
+ * Stage 1 (Default): STUN-only ICE servers for direct local Wi-Fi / P2P streaming.
+ * Uses 0 bytes of TURN relay quota when devices can connect directly over LAN.
+ * Intentionally omits `iceCandidatePoolSize` and `max-bundle` for iOS Safari WebKit compatibility.
  */
+export const STUN_ONLY_SERVERS: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+];
+
 export const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun.cloudflare.com:3478' },
-    { urls: 'stun:stun.services.mozilla.com' },
-  ],
-  bundlePolicy: 'max-bundle',
-  rtcpMuxPolicy: 'require',
+  iceServers: STUN_ONLY_SERVERS,
 };
 
 export const PEER_OPTIONS: PeerOptions = {
@@ -24,10 +20,209 @@ export const PEER_OPTIONS: PeerOptions = {
   config: RTC_CONFIG,
 };
 
+export type TurnProvider = 'stun-only' | 'metered' | 'turnix' | 'expressturn';
+export type ActiveTurnProvider = Exclude<TurnProvider, 'stun-only'>;
+
+export interface RelayFallbackResult {
+  peerOptions: PeerOptions;
+  provider: ActiveTurnProvider;
+}
+
+const VALID_ACTIVE_PROVIDERS = new Set<ActiveTurnProvider>([
+  'metered',
+  'turnix',
+  'expressturn',
+]);
+
+// STUN/TURN RFC 5766/8656 error codes indicating quota exhaustion or rejected credentials
+const TURN_QUOTA_OR_AUTH_ERROR_CODES = new Set([401, 403, 437, 486, 508]);
+const TURN_COOLDOWN_MS = 15 * 60 * 1000;
+const RELAY_CACHE_TTL_MS = 10 * 60 * 1000;
+
+let turnUnavailableUntil = 0;
+const skippedProviders = new Set<ActiveTurnProvider>();
+let cachedRelayResult: {
+  config: RTCConfiguration;
+  provider: ActiveTurnProvider;
+  expiresAt: number;
+} | null = null;
+
+export function isTurnQuotaUnavailable(): boolean {
+  if (turnUnavailableUntil > 0 && Date.now() >= turnUnavailableUntil) {
+    // Cooldown expired — reset session skip list so providers can be probed cleanly again
+    turnUnavailableUntil = 0;
+    skippedProviders.clear();
+    cachedRelayResult = null;
+    return false;
+  }
+  return Date.now() < turnUnavailableUntil;
+}
+
+export function markTurnQuotaUnavailable(): void {
+  turnUnavailableUntil = Date.now() + TURN_COOLDOWN_MS;
+  cachedRelayResult = null;
+}
+
+export function getSkippedTurnProviders(): ActiveTurnProvider[] {
+  return Array.from(skippedProviders);
+}
+
+/**
+ * Adds a failing/quota-exhausted TURN provider to the session skip list so the next
+ * `/api/ice-servers?mode=relay&skip=...` call seamlessly hops to the next provider
+ * in the Metered -> Turnix -> ExpressTURN chain before entering TURN cooldown.
+ */
+export function skipTurnProvider(provider: ActiveTurnProvider): void {
+  if (!VALID_ACTIVE_PROVIDERS.has(provider)) return;
+  skippedProviders.add(provider);
+  if (cachedRelayResult?.provider === provider) {
+    cachedRelayResult = null;
+  }
+}
+
+export function resetTurnProviderState(): void {
+  turnUnavailableUntil = 0;
+  skippedProviders.clear();
+  cachedRelayResult = null;
+}
+
+/**
+ * Listens safely for TURN quota / authentication rejections on an RTCPeerConnection.
+ * When a `provider` is specified, marks that specific provider skipped so the caller can
+ * hop seamlessly to the next provider in the 3-tier fallback chain.
+ */
+export function monitorTurnQuotaErrors(
+  pc: RTCPeerConnection | null | undefined,
+  provider?: ActiveTurnProvider,
+  onQuotaRejected?: (rejectedProvider?: ActiveTurnProvider) => void
+): () => void {
+  if (!pc || typeof pc.addEventListener !== 'function') {
+    return () => {};
+  }
+
+  let triggered = false;
+  const handler = (event: Event) => {
+    if (triggered) return;
+    const iceErr = event as RTCPeerConnectionIceErrorEvent;
+    const url = (iceErr.url || '').toLowerCase();
+    const code = Number(iceErr.errorCode || 0);
+    if (url.startsWith('turn') && TURN_QUOTA_OR_AUTH_ERROR_CODES.has(code)) {
+      triggered = true;
+      if (provider) {
+        skipTurnProvider(provider);
+      } else {
+        markTurnQuotaUnavailable();
+      }
+      onQuotaRejected?.(provider);
+    }
+  };
+
+  pc.addEventListener('icecandidateerror', handler);
+  return () => pc.removeEventListener('icecandidateerror', handler);
+}
+
+/**
+ * Fetches Stage 2 Relay-Assisted PeerJS options strictly from our Cloudflare Edge Function
+ * (`/api/ice-servers?mode=relay`, appending `&skip=...` for any providers that already failed
+ * or hit quota in this session).
+ *
+ * Contains ZERO hardcoded credentials. Returns `null` cleanly if no TURN env vars are configured
+ * or all providers in the Metered -> Turnix -> ExpressTURN chain are currently exhausted.
+ */
+export async function getRelayFallbackPeerOptions(options?: {
+  extraSkip?: ActiveTurnProvider[];
+}): Promise<RelayFallbackResult | null> {
+  if (typeof window === 'undefined') return null;
+  if (isTurnQuotaUnavailable()) return null;
+
+  if (options?.extraSkip && options.extraSkip.length > 0) {
+    for (const p of options.extraSkip) {
+      if (VALID_ACTIVE_PROVIDERS.has(p)) {
+        skippedProviders.add(p);
+      }
+    }
+    if (cachedRelayResult && skippedProviders.has(cachedRelayResult.provider)) {
+      cachedRelayResult = null;
+    }
+  }
+
+  const now = Date.now();
+  if (
+    cachedRelayResult &&
+    now < cachedRelayResult.expiresAt &&
+    !skippedProviders.has(cachedRelayResult.provider)
+  ) {
+    return {
+      peerOptions: { debug: 1, config: cachedRelayResult.config },
+      provider: cachedRelayResult.provider,
+    };
+  }
+
+  const skipList = Array.from(skippedProviders);
+  const endpoint =
+    skipList.length > 0
+      ? `/api/ice-servers?mode=relay&skip=${encodeURIComponent(skipList.join(','))}`
+      : '/api/ice-servers?mode=relay';
+
+  try {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 2500);
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    window.clearTimeout(timer);
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = (await res.json()) as {
+      iceServers?: RTCIceServer[];
+      hasTurn?: boolean;
+      provider?: TurnProvider;
+    };
+
+    if (
+      data.hasTurn === true &&
+      data.provider &&
+      data.provider !== 'stun-only' &&
+      VALID_ACTIVE_PROVIDERS.has(data.provider) &&
+      Array.isArray(data.iceServers) &&
+      data.iceServers.length > 0
+    ) {
+      const config: RTCConfiguration = { iceServers: data.iceServers };
+      cachedRelayResult = {
+        config,
+        provider: data.provider,
+        expiresAt: now + RELAY_CACHE_TTL_MS,
+      };
+      return {
+        peerOptions: { debug: 1, config },
+        provider: data.provider,
+      };
+    }
+
+    // All configured TURN providers exhausted/skipped (or none configured) -> enter 15-min cooldown
+    markTurnQuotaUnavailable();
+    return null;
+  } catch {
+    // Offline or local `astro dev` without Pages Functions — degrade cleanly without crashing
+    return null;
+  }
+}
+
 export type ConnectionStatus = 'waiting' | 'connecting' | 'live' | 'disconnected' | 'ready';
 
 export type VideoQuality = '720p' | '1080p';
 export type CameraFacing = 'user' | 'environment';
+
+export interface CallMetadata {
+  relayFallback?: boolean;
+  relayProvider?: ActiveTurnProvider;
+  skippedProviders?: ActiveTurnProvider[];
+}
 
 export type PeerControlMessage =
   | { type: 'mic-state'; muted: boolean }
@@ -103,7 +298,6 @@ export function preferSafeVideoCodecs(sdp: string): string {
     const videoLineIdx = lines.findIndex((line) => line.startsWith('m=video '));
     if (videoLineIdx === -1) return sdp;
 
-    // Locate end of video media section
     let videoEndIdx = lines.length;
     for (let i = videoLineIdx + 1; i < lines.length; i++) {
       if (lines[i].startsWith('m=')) {
@@ -159,8 +353,7 @@ export function preferSafeVideoCodecs(sdp: string): string {
     };
 
     for (const pt of payloadTypes) {
-      const codec = codecByPt.get(pt);
-      if (codec === 'VP8') {
+      if (codecByPt.get(pt) === 'VP8') {
         pushWithRtx(pt, tier1Vp8);
       }
     }
@@ -208,15 +401,9 @@ interface PeerJsConnectionLike {
 }
 
 /**
- * Fixes a critical PeerJS 1.5.x race condition that frequently breaks Apple iOS Safari:
- * PeerJS invokes async `handleSDP()` (setRemoteDescription) without awaiting it, and then
- * immediately calls `handleCandidate()` for queued ICE candidates. On iOS Safari WebKit
- * (which bursts candidates right behind the SDP Offer/Answer), `addIceCandidate` throws
- * `InvalidStateError` before `remoteDescription` is set and PeerJS discards the candidates,
- * leaving ICE stuck in `checking` with a black screen.
- *
- * This wrapper buffers incoming ICE candidates until `remoteDescription` is set, then
- * flushes all queued candidates cleanly in order.
+ * Fixes a PeerJS 1.5.x race condition that frequently breaks Apple iOS Safari:
+ * buffers incoming ICE candidates until `setRemoteDescription` resolves, then flushes
+ * them cleanly in arrival order so zero host/STUN/TURN candidates are discarded.
  */
 export function patchPeerJsIceQueue(connection: unknown): void {
   const conn = connection as PeerJsConnectionLike | null | undefined;
@@ -267,9 +454,7 @@ export function patchPeerJsIceQueue(connection: unknown): void {
 }
 
 /**
- * Attaches a MediaStream to an HTMLVideoElement with full Safari/iOS/Chrome safety:
- * sets `playsinline` + `webkit-playsinline`, assigns `srcObject`, and retries `.play()`
- * on metadata/canplay events so black frames never stall playback.
+ * Attaches a MediaStream to an HTMLVideoElement with full Safari/iOS/Chrome safety.
  */
 export function attachStreamToVideo(
   videoEl: HTMLVideoElement,
@@ -308,25 +493,50 @@ export function attachStreamToVideo(
   };
 }
 
+export interface PeerTelemetry {
+  latencyMs: number | null;
+  isRelayed: boolean;
+}
+
 /**
- * Extracts estimated round-trip latency (ms) from RTCPeerConnection.getStats().
+ * Extracts estimated round-trip latency (ms) and whether media is flowing via direct P2P
+ * or TURN relay from RTCPeerConnection.getStats().
  */
-export async function measurePeerLatencyMs(
+export async function measurePeerTelemetry(
   pc: RTCPeerConnection | null | undefined
-): Promise<number | null> {
-  if (!pc || typeof pc.getStats !== 'function') return null;
+): Promise<PeerTelemetry> {
+  if (!pc || typeof pc.getStats !== 'function') {
+    return { latencyMs: null, isRelayed: false };
+  }
   try {
     const stats = await pc.getStats();
     let bestRttSeconds: number | null = null;
+    let activeLocalId: string | null = null;
+    let activeRemoteId: string | null = null;
 
     stats.forEach((report) => {
       if (
         report.type === 'candidate-pair' &&
-        (report.nominated || report.state === 'succeeded') &&
-        typeof report.currentRoundTripTime === 'number' &&
-        report.currentRoundTripTime >= 0
+        (report.nominated || report.state === 'succeeded')
       ) {
-        bestRttSeconds = report.currentRoundTripTime;
+        if (
+          typeof report.currentRoundTripTime === 'number' &&
+          report.currentRoundTripTime >= 0
+        ) {
+          bestRttSeconds = report.currentRoundTripTime;
+        }
+        if (report.localCandidateId) activeLocalId = String(report.localCandidateId);
+        if (report.remoteCandidateId) activeRemoteId = String(report.remoteCandidateId);
+      }
+    });
+
+    let isRelayed = false;
+    stats.forEach((report) => {
+      if (
+        (report.id === activeLocalId || report.id === activeRemoteId) &&
+        report.candidateType === 'relay'
+      ) {
+        isRelayed = true;
       }
     });
 
@@ -342,12 +552,12 @@ export async function measurePeerLatencyMs(
       });
     }
 
-    if (bestRttSeconds !== null) {
-      return Math.max(1, Math.round(bestRttSeconds * 1000));
-    }
-    return null;
+    return {
+      latencyMs: bestRttSeconds !== null ? Math.max(1, Math.round(bestRttSeconds * 1000)) : null,
+      isRelayed,
+    };
   } catch {
-    return null;
+    return { latencyMs: null, isRelayed: false };
   }
 }
 

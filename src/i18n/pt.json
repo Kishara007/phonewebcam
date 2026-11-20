@@ -131,5 +131,8 @@
   "below.connectTitle": "Use no Google Meet, Zoom e OBS",
   "below.connectSubtitle": "Pareie uma vez no navegador e conecte ao seu app de chamadas ou streaming.",
   "tool.waitingVideoFrames": "Negociando fluxo de vídeo...",
-  "error.appleVideoStall": "Pareado, mas nenhum quadro de vídeo chegou. No iPhone/iPad, deixe os dois aparelhos no mesmo Wi-Fi, desative VPN / Retransmissão Privada do iCloud e permita Rede Local para o Safari; depois toque em Reconectar."
+  "error.appleVideoStall": "Pareado, mas nenhum quadro de vídeo chegou. No iPhone/iPad, deixe os dois aparelhos no mesmo Wi-Fi, desative VPN / Retransmissão Privada do iCloud e permita Rede Local para o Safari; depois toque em Reconectar.",
+  "tool.statusLiveRelay": "Ao vivo · Relay",
+  "tool.switchingToRelay": "Tentando via relay entre redes...",
+  "error.relayQuotaFallback": "Não foi possível conectar entre redes diferentes (a cota gratuita de relay pode ter sido atingida). Conecte os dois aparelhos no mesmo Wi-Fi para P2P direto ilimitado e toque em Reconectar."
 }

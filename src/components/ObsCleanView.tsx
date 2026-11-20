@@ -8,9 +8,14 @@ import {
 } from '@/lib/roomCode';
 import {
   PEER_OPTIONS,
+  RTC_CONFIG,
   attachStreamToVideo,
+  getRelayFallbackPeerOptions,
+  monitorTurnQuotaErrors,
   patchPeerJsIceQueue,
   preferSafeVideoCodecs,
+  type ActiveTurnProvider,
+  type CallMetadata,
   type PeerControlMessage,
 } from '@/lib/webrtc';
 import { translate, type LanguageCode } from '@/i18n';
@@ -24,10 +29,8 @@ interface ObsCleanViewProps {
 /**
  * Full-viewport 100vw x 100vh zero-chrome black canvas for OBS Browser Source (?view=CODE).
  *
- * Dual-mode automatic attachment:
- * 1. Tries claiming `pwc-v1-recv-CODE` directly (when PC preview tab is closed).
- * 2. If `unavailable-id` (PC preview tab is already open!), connects as a JSON relay observer
- *    to `pwc-v1-recv-CODE` and receives the live MediaStream automatically with zero user steps.
+ * Uses STUN-only direct P2P by default (0 TURN quota), and automatically activates Metered TURN
+ * fallback ONLY when an incoming phone call requests Stage 2 cross-network relay (`metadata.relayFallback`).
  */
 export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => {
   const code = sanitizeRoomCode(rawCode);
@@ -57,7 +60,6 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
         setNeedsAudioGesture(false);
       })
       .catch(() => {
-        // Fallback when previewed inside a regular browser tab blocking unmuted autoplay
         videoEl.muted = true;
         videoEl
           .play()
@@ -124,7 +126,7 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
       }, delayMs);
     };
 
-    const wireIncomingCall = (call: MediaConnection) => {
+    const wireIncomingCall = async (peer: Peer, call: MediaConnection) => {
       if (callRef.current && callRef.current !== call) {
         try {
           callRef.current.close();
@@ -134,9 +136,32 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
       }
       callRef.current = call;
 
-      // Patch PeerJS ICE queue BEFORE answering so iOS Safari candidates are never dropped
+      // Patch PeerJS ICE candidate queue BEFORE any async work so rapid iOS candidates
+      // arriving behind the Offer are safely buffered until call.answer() runs.
       patchPeerJsIceQueue(call);
-      call.answer(undefined, { sdpTransform: preferSafeVideoCodecs });
+
+      const meta = (call.metadata || {}) as CallMetadata;
+      const peerOptionsBag = peer.options as { config?: RTCConfiguration };
+      let activeProvider: ActiveTurnProvider | undefined;
+
+      // Enable TURN ONLY if the phone fell back to Stage 2 cross-network relay
+      if (meta.relayFallback) {
+        const relayResult = await getRelayFallbackPeerOptions({
+          extraSkip: meta.skippedProviders,
+        });
+        if (cancelled || callRef.current !== call || peer.destroyed) return;
+        if (relayResult?.peerOptions.config) {
+          peerOptionsBag.config = relayResult.peerOptions.config;
+          activeProvider = relayResult.provider;
+        }
+      }
+
+      try {
+        call.answer(undefined, { sdpTransform: preferSafeVideoCodecs });
+      } finally {
+        // Restore STUN-only immediately so future direct LAN sessions use 0 TURN quota
+        peerOptionsBag.config = RTC_CONFIG;
+      }
 
       const trackMap = new Map<string, MediaStreamTrack>();
       const pushTracks = (tracks: MediaStreamTrack[]) => {
@@ -154,6 +179,9 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
 
       const rtcPc = call.peerConnection;
       if (rtcPc) {
+        if (activeProvider) {
+          monitorTurnQuotaErrors(rtcPc, activeProvider);
+        }
         rtcPc.addEventListener('track', (evt) => {
           if (cancelled) return;
           const incoming = evt.streams?.[0]
@@ -172,7 +200,7 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
       });
 
       call.on('close', () => {
-        if (!cancelled) {
+        if (!cancelled && callRef.current === call) {
           setHasStream(false);
           if (videoRef.current) {
             videoRef.current.srcObject = null;
@@ -181,7 +209,7 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
       });
 
       call.on('error', () => {
-        if (!cancelled) {
+        if (!cancelled && callRef.current === call) {
           setHasStream(false);
         }
       });
@@ -224,7 +252,9 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
         });
       });
 
-      relayPeer.on('call', wireIncomingCall);
+      relayPeer.on('call', (call) => {
+        wireIncomingCall(relayPeer, call);
+      });
 
       relayPeer.on('error', () => {
         if (!cancelled) {
@@ -242,7 +272,9 @@ export const ObsCleanView: React.FC<ObsCleanViewProps> = ({ rawCode, lang }) => 
       const peer = new PeerClass(getReceiverPeerId(code), PEER_OPTIONS);
       peerRef.current = peer;
 
-      peer.on('call', wireIncomingCall);
+      peer.on('call', (call) => {
+        wireIncomingCall(peer, call);
+      });
 
       peer.on('disconnected', () => {
         if (!cancelled && !peer.destroyed) {

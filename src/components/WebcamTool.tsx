@@ -24,14 +24,22 @@ import {
 import { downloadObsSceneCollection } from '@/lib/obsConfig';
 import {
   PEER_OPTIONS,
+  RTC_CONFIG,
   acquireCameraStream,
   attachStreamToVideo,
   buildMediaConstraints,
+  getRelayFallbackPeerOptions,
+  getSkippedTurnProviders,
+  isTurnQuotaUnavailable,
   mapMediaErrorToKey,
   mapPeerErrorToKey,
-  measurePeerLatencyMs,
+  measurePeerTelemetry,
+  monitorTurnQuotaErrors,
   patchPeerJsIceQueue,
   preferSafeVideoCodecs,
+  skipTurnProvider,
+  type ActiveTurnProvider,
+  type CallMetadata,
   type CameraFacing,
   type ConnectionStatus,
   type PeerControlMessage,
@@ -91,6 +99,9 @@ export const WebcamTool: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [resolutionLabel, setResolutionLabel] = useState<string>('');
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const [isRelayed, setIsRelayed] = useState<boolean>(false);
+  const [pcRetryingRelay, setPcRetryingRelay] = useState<boolean>(false);
+  const [pcCallAttempt, setPcCallAttempt] = useState<number>(0);
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [copiedObsUrl, setCopiedObsUrl] = useState<boolean>(false);
   const [obsDownloaded, setObsDownloaded] = useState<boolean>(false);
@@ -103,6 +114,7 @@ export const WebcamTool: React.FC = () => {
   const pcPeerRef = useRef<Peer | null>(null);
   const pcActiveCallRef = useRef<MediaConnection | null>(null);
   const pcDataConnRef = useRef<DataConnection | null>(null);
+  const pcRelayWaitTimerRef = useRef<number | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const obsRelayPeersRef = useRef<Set<string>>(new Set());
 
@@ -113,6 +125,8 @@ export const WebcamTool: React.FC = () => {
   const [quality, setQuality] = useState<VideoQuality>('720p');
   const [phoneStatus, setPhoneStatus] = useState<ConnectionStatus>('ready');
   const [phoneErrorKey, setPhoneErrorKey] = useState<TranslationKey | null>(null);
+  const [phoneRetryingRelay, setPhoneRetryingRelay] = useState<boolean>(false);
+  const [phoneIsRelayed, setPhoneIsRelayed] = useState<boolean>(false);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [isStartingCamera, setIsStartingCamera] = useState<boolean>(false);
   const [isSwitchingCamera, setIsSwitchingCamera] = useState<boolean>(false);
@@ -128,6 +142,8 @@ export const WebcamTool: React.FC = () => {
   const phonePeerRef = useRef<Peer | null>(null);
   const phoneCallRef = useRef<MediaConnection | null>(null);
   const phoneDataConnRef = useRef<DataConnection | null>(null);
+  const phoneConnectTimerRef = useRef<number | null>(null);
+  const phoneSessionGenRef = useRef<number>(0);
   const localStreamRef = useRef<MediaStream | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const wantWakeLockRef = useRef<boolean>(false);
@@ -263,6 +279,11 @@ export const WebcamTool: React.FC = () => {
 
   // === Teardown helpers ===
   const teardownPcPeer = useCallback(() => {
+    if (pcRelayWaitTimerRef.current !== null) {
+      window.clearTimeout(pcRelayWaitTimerRef.current);
+      pcRelayWaitTimerRef.current = null;
+    }
+
     try {
       pcActiveCallRef.current?.close();
     } catch {
@@ -292,11 +313,47 @@ export const WebcamTool: React.FC = () => {
     setHasVideoFrames(false);
     setResolutionLabel('');
     setLatencyMs(null);
+    setIsRelayed(false);
+    setPcRetryingRelay(false);
     setPhoneMicMuted(false);
+  }, []);
+
+  /**
+   * Closes only the active PeerJS call/peer while keeping the live camera stream & Wake Lock
+   * untouched — used when seamlessly escalating from Stage 1 (STUN) to Stage 2 (Metered TURN).
+   */
+  const closePhonePeerOnly = useCallback(() => {
+    if (phoneConnectTimerRef.current !== null) {
+      window.clearTimeout(phoneConnectTimerRef.current);
+      phoneConnectTimerRef.current = null;
+    }
+
+    try {
+      phoneCallRef.current?.close();
+    } catch {
+      // ignore
+    }
+    phoneCallRef.current = null;
+
+    try {
+      phoneDataConnRef.current?.close();
+    } catch {
+      // ignore
+    }
+    phoneDataConnRef.current = null;
+
+    try {
+      phonePeerRef.current?.destroy();
+    } catch {
+      // ignore
+    }
+    phonePeerRef.current = null;
   }, []);
 
   const teardownPhoneSender = useCallback(
     (notifyRemote = true) => {
+      phoneSessionGenRef.current += 1;
+
       if (notifyRemote && phoneDataConnRef.current?.open) {
         try {
           const msg: PeerControlMessage = { type: 'disconnect' };
@@ -306,26 +363,7 @@ export const WebcamTool: React.FC = () => {
         }
       }
 
-      try {
-        phoneCallRef.current?.close();
-      } catch {
-        // ignore
-      }
-      phoneCallRef.current = null;
-
-      try {
-        phoneDataConnRef.current?.close();
-      } catch {
-        // ignore
-      }
-      phoneDataConnRef.current = null;
-
-      try {
-        phonePeerRef.current?.destroy();
-      } catch {
-        // ignore
-      }
-      phonePeerRef.current = null;
+      closePhonePeerOnly();
 
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => {
@@ -346,10 +384,12 @@ export const WebcamTool: React.FC = () => {
       setMicMuted(false);
       setIsStartingCamera(false);
       setIsSwitchingCamera(false);
+      setPhoneRetryingRelay(false);
+      setPhoneIsRelayed(false);
       setPhoneStatus('ready');
       releaseWakeLock();
     },
-    [releaseWakeLock]
+    [closePhonePeerOnly, releaseWakeLock]
   );
 
   // === Desktop Receiver PeerJS Lifecycle ===
@@ -368,6 +408,7 @@ export const WebcamTool: React.FC = () => {
         const { default: PeerClass } = await import('peerjs');
         if (cancelled) return;
 
+        // Stage 1 Default: STUN-only (0 bytes of Metered TURN quota used for same-Wi-Fi P2P)
         const peer = new PeerClass(getReceiverPeerId(roomCode), PEER_OPTIONS);
         pcPeerRef.current = peer;
 
@@ -408,6 +449,10 @@ export const WebcamTool: React.FC = () => {
             if (msg.type === 'mic-state') {
               setPhoneMicMuted(Boolean(msg.muted));
             } else if (msg.type === 'disconnect') {
+              if (pcRelayWaitTimerRef.current !== null) {
+                window.clearTimeout(pcRelayWaitTimerRef.current);
+                pcRelayWaitTimerRef.current = null;
+              }
               if (pcActiveCallRef.current) {
                 try {
                   pcActiveCallRef.current.close();
@@ -420,6 +465,8 @@ export const WebcamTool: React.FC = () => {
               setHasVideoFrames(false);
               setResolutionLabel('');
               setLatencyMs(null);
+              setIsRelayed(false);
+              setPcRetryingRelay(false);
               setPhoneMicMuted(false);
               setPcStatus('waiting');
             }
@@ -429,6 +476,15 @@ export const WebcamTool: React.FC = () => {
         peer.on('call', (call) => {
           if (cancelled) return;
 
+          // Patch PeerJS ICE queue synchronously BEFORE any async TURN lookup so zero
+          // iOS Safari host/STUN/TURN candidates arriving behind the Offer are dropped.
+          patchPeerJsIceQueue(call);
+
+          if (pcRelayWaitTimerRef.current !== null) {
+            window.clearTimeout(pcRelayWaitTimerRef.current);
+            pcRelayWaitTimerRef.current = null;
+          }
+
           if (pcActiveCallRef.current && pcActiveCallRef.current !== call) {
             try {
               pcActiveCallRef.current.close();
@@ -437,106 +493,212 @@ export const WebcamTool: React.FC = () => {
             }
           }
 
+          const callMeta = (call.metadata || {}) as CallMetadata;
+          const isRelayCall = Boolean(callMeta.relayFallback);
+
           pcActiveCallRef.current = call;
+          setPcCallAttempt((n) => n + 1);
           setPcErrorKey(null);
           setHasVideoFrames(false);
+          setIsRelayed(false);
+          setPcRetryingRelay(isRelayCall);
           setPcStatus('connecting');
 
-          // CRITICAL FOR APPLE iOS SAFARI:
-          // Patch PeerJS ICE candidate queue BEFORE answering so rapid iOS host/STUN
-          // candidates arriving behind the Offer are queued instead of dropped, and
-          // prioritize VP8 + Constrained Baseline H.264 for universal cross-browser decoding.
-          patchPeerJsIceQueue(call);
-          call.answer(undefined, { sdpTransform: preferSafeVideoCodecs });
+          void (async () => {
+            const peerOptionsBag = peer.options as { config?: RTCConfiguration };
+            let activeProvider: ActiveTurnProvider | undefined;
 
-          // Collect all live tracks across multiple ontrack/stream events (iOS Safari often
-          // delivers audio first and video second on the same stream reference).
-          const receivedTracks = new Map<string, MediaStreamTrack>();
-          const syncStream = (tracks: MediaStreamTrack[]) => {
-            let changed = false;
-            for (const tr of tracks) {
-              if (tr.readyState !== 'ended' && !receivedTracks.has(tr.id)) {
-                receivedTracks.set(tr.id, tr);
-                changed = true;
+            // Engage TURN ONLY when Phone explicitly escalated to Stage 2 cross-network relay
+            if (isRelayCall) {
+              const relayResult = await getRelayFallbackPeerOptions({
+                extraSkip: callMeta.skippedProviders,
+              });
+              if (cancelled || pcActiveCallRef.current !== call || peer.destroyed) return;
+              if (relayResult?.peerOptions.config) {
+                peerOptionsBag.config = relayResult.peerOptions.config;
+                activeProvider = relayResult.provider;
               }
             }
-            if (!changed || cancelled) return;
 
-            const assembled = new MediaStream(Array.from(receivedTracks.values()));
-            setRemoteStream(assembled);
-            setPcErrorKey(null);
+            try {
+              call.answer(undefined, { sdpTransform: preferSafeVideoCodecs });
+            } finally {
+              // Always restore STUN-only immediately so OBS loopback and future LAN calls use 0 TURN
+              peerOptionsBag.config = RTC_CONFIG;
+            }
 
-            obsRelayPeersRef.current.forEach((obsPeerId) => {
-              if (!peer.destroyed) {
-                try {
-                  const relayCall = peer.call(obsPeerId, assembled, {
-                    sdpTransform: preferSafeVideoCodecs,
-                  });
-                  if (relayCall) patchPeerJsIceQueue(relayCall);
-                } catch {
-                  // ignore
+            let callBecameLive = false;
+            let stopQuotaMonitor: (() => void) | null = null;
+
+            // Collect all live tracks across multiple ontrack/stream events (iOS Safari often
+            // delivers audio first and video second on the same stream reference).
+            const receivedTracks = new Map<string, MediaStreamTrack>();
+            const syncStream = (tracks: MediaStreamTrack[]) => {
+              let changed = false;
+              for (const tr of tracks) {
+                if (tr.readyState !== 'ended' && !receivedTracks.has(tr.id)) {
+                  receivedTracks.set(tr.id, tr);
+                  changed = true;
                 }
               }
-            });
-          };
+              if (!changed || cancelled || pcActiveCallRef.current !== call) return;
 
-          const rtcPc = call.peerConnection;
-          if (rtcPc) {
-            rtcPc.addEventListener('track', (evt) => {
-              if (cancelled || pcActiveCallRef.current !== call) return;
-              const incoming = evt.streams?.[0]
-                ? evt.streams[0].getTracks()
-                : evt.track
-                  ? [evt.track]
-                  : [];
-              syncStream(incoming);
-            });
-          }
+              const assembled = new MediaStream(Array.from(receivedTracks.values()));
+              setRemoteStream(assembled);
+              setPcErrorKey(null);
 
-          call.on('stream', (incomingStream) => {
-            if (cancelled || pcActiveCallRef.current !== call || !incomingStream) return;
-            syncStream(incomingStream.getTracks());
-          });
-
-          const handleDrop = () => {
-            if (cancelled || pcActiveCallRef.current !== call) return;
-            pcActiveCallRef.current = null;
-            setRemoteStream(null);
-            setHasVideoFrames(false);
-            setResolutionLabel('');
-            setLatencyMs(null);
-            setPhoneMicMuted(false);
-            setPcStatus('waiting');
-          };
-
-          call.on('close', handleDrop);
-          call.on('error', () => {
-            if (cancelled) return;
-            handleDrop();
-            setPcErrorKey('error.networkDrop');
-          });
-
-          if (rtcPc) {
-            const syncIceState = () => {
-              if (cancelled || pcActiveCallRef.current !== call) return;
-              const ice = rtcPc.iceConnectionState;
-              const conn = rtcPc.connectionState;
-              if (ice === 'connected' || ice === 'completed' || conn === 'connected') {
-                setPcStatus('live');
-                setPcErrorKey(null);
-              } else if (ice === 'failed' || conn === 'failed') {
-                handleDrop();
-                setPcErrorKey('error.appleVideoStall');
-              } else if (ice === 'closed' || conn === 'closed') {
-                handleDrop();
-              } else if (ice === 'disconnected') {
-                setPcStatus('connecting');
-              }
+              obsRelayPeersRef.current.forEach((obsPeerId) => {
+                if (!peer.destroyed) {
+                  try {
+                    const relayCall = peer.call(obsPeerId, assembled, {
+                      sdpTransform: preferSafeVideoCodecs,
+                    });
+                    if (relayCall) patchPeerJsIceQueue(relayCall);
+                  } catch {
+                    // ignore
+                  }
+                }
+              });
             };
 
-            rtcPc.addEventListener('iceconnectionstatechange', syncIceState);
-            rtcPc.addEventListener('connectionstatechange', syncIceState);
-          }
+            const handleDrop = () => {
+              if (cancelled || pcActiveCallRef.current !== call) return;
+              stopQuotaMonitor?.();
+              stopQuotaMonitor = null;
+              if (pcRelayWaitTimerRef.current !== null) {
+                window.clearTimeout(pcRelayWaitTimerRef.current);
+                pcRelayWaitTimerRef.current = null;
+              }
+              pcActiveCallRef.current = null;
+              setRemoteStream(null);
+              setHasVideoFrames(false);
+              setResolutionLabel('');
+              setLatencyMs(null);
+              setIsRelayed(false);
+              setPcRetryingRelay(false);
+              setPhoneMicMuted(false);
+              setPcStatus('waiting');
+            };
+
+            // While Phone escalates Stage 1 -> Stage 2 or hops across the 3-provider TURN chain
+            // (Metered -> Turnix -> ExpressTURN), hold connecting UI briefly to avoid error flashes.
+            const canWaitForPhoneHop = () =>
+              !callBecameLive &&
+              !isTurnQuotaUnavailable() &&
+              (!isRelayCall || getSkippedTurnProviders().length < 3);
+
+            const waitForStage2OrDrop = (fallbackErrorKey: TranslationKey | null) => {
+              if (cancelled || pcActiveCallRef.current !== call) return;
+              setPcRetryingRelay(true);
+              setPcStatus('connecting');
+              setPcErrorKey(null);
+
+              if (pcRelayWaitTimerRef.current !== null) {
+                window.clearTimeout(pcRelayWaitTimerRef.current);
+              }
+              pcRelayWaitTimerRef.current = window.setTimeout(() => {
+                pcRelayWaitTimerRef.current = null;
+                if (cancelled || pcActiveCallRef.current !== call) return;
+                handleDrop();
+                if (fallbackErrorKey) {
+                  setPcErrorKey(fallbackErrorKey);
+                }
+              }, 6000);
+            };
+
+            const rtcPc = call.peerConnection;
+            if (rtcPc) {
+              if (isRelayCall && activeProvider) {
+                stopQuotaMonitor = monitorTurnQuotaErrors(rtcPc, activeProvider);
+              }
+
+              rtcPc.addEventListener('track', (evt) => {
+                if (cancelled || pcActiveCallRef.current !== call) return;
+                const incoming = evt.streams?.[0]
+                  ? evt.streams[0].getTracks()
+                  : evt.track
+                    ? [evt.track]
+                    : [];
+                syncStream(incoming);
+              });
+            }
+
+            call.on('stream', (incomingStream) => {
+              if (cancelled || pcActiveCallRef.current !== call || !incomingStream) return;
+              syncStream(incomingStream.getTracks());
+            });
+
+            call.on('close', () => {
+              if (cancelled || pcActiveCallRef.current !== call) return;
+              if (canWaitForPhoneHop()) {
+                waitForStage2OrDrop(isRelayCall ? 'error.relayQuotaFallback' : null);
+              } else {
+                handleDrop();
+              }
+            });
+
+            call.on('error', () => {
+              if (cancelled || pcActiveCallRef.current !== call) return;
+              if (isRelayCall && activeProvider) {
+                skipTurnProvider(activeProvider);
+              }
+              if (canWaitForPhoneHop()) {
+                waitForStage2OrDrop(
+                  isRelayCall ? 'error.relayQuotaFallback' : 'error.appleVideoStall'
+                );
+              } else if (isRelayCall) {
+                handleDrop();
+                setPcErrorKey('error.relayQuotaFallback');
+              } else {
+                handleDrop();
+                setPcErrorKey('error.networkDrop');
+              }
+            });
+
+            if (rtcPc) {
+              const syncIceState = () => {
+                if (cancelled || pcActiveCallRef.current !== call) return;
+                const ice = rtcPc.iceConnectionState;
+                const conn = rtcPc.connectionState;
+                if (ice === 'connected' || ice === 'completed' || conn === 'connected') {
+                  callBecameLive = true;
+                  if (pcRelayWaitTimerRef.current !== null) {
+                    window.clearTimeout(pcRelayWaitTimerRef.current);
+                    pcRelayWaitTimerRef.current = null;
+                  }
+                  setPcRetryingRelay(false);
+                  setPcStatus('live');
+                  setPcErrorKey(null);
+                } else if (ice === 'failed' || conn === 'failed') {
+                  if (isRelayCall && activeProvider) {
+                    skipTurnProvider(activeProvider);
+                  }
+                  if (canWaitForPhoneHop()) {
+                    waitForStage2OrDrop(
+                      isRelayCall ? 'error.relayQuotaFallback' : 'error.appleVideoStall'
+                    );
+                  } else if (isRelayCall) {
+                    handleDrop();
+                    setPcErrorKey('error.relayQuotaFallback');
+                  } else {
+                    handleDrop();
+                    setPcErrorKey('error.appleVideoStall');
+                  }
+                } else if (ice === 'closed' || conn === 'closed') {
+                  if (canWaitForPhoneHop()) {
+                    waitForStage2OrDrop(isRelayCall ? 'error.relayQuotaFallback' : null);
+                  } else {
+                    handleDrop();
+                  }
+                } else if (ice === 'disconnected') {
+                  setPcStatus('connecting');
+                }
+              };
+
+              rtcPc.addEventListener('iceconnectionstatechange', syncIceState);
+              rtcPc.addEventListener('connectionstatechange', syncIceState);
+            }
+          })();
         });
 
         peer.on('disconnected', () => {
@@ -582,6 +744,7 @@ export const WebcamTool: React.FC = () => {
     const updateResolution = () => {
       if (videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
         setHasVideoFrames(true);
+        setPcRetryingRelay(false);
         setPcStatus('live');
         setPcErrorKey(null);
         setResolutionLabel(`${videoEl.videoWidth}×${videoEl.videoHeight}`);
@@ -614,7 +777,7 @@ export const WebcamTool: React.FC = () => {
     };
   }, [remoteStream, monitorMuted]);
 
-  // Stall watchdog: if connected/connecting for 12s with 0 decoded frames, surface actionable Apple/Wi-Fi guidance
+  // Stall watchdog: if connected/connecting for 14s with 0 decoded frames, surface actionable guidance
   useEffect(() => {
     if ((!remoteStream && pcStatus !== 'connecting') || hasVideoFrames) {
       return;
@@ -623,12 +786,12 @@ export const WebcamTool: React.FC = () => {
     const timerId = window.setTimeout(() => {
       const videoEl = pcVideoRef.current;
       if (!videoEl || videoEl.videoWidth === 0) {
-        setPcErrorKey('error.appleVideoStall');
+        setPcErrorKey(pcRetryingRelay ? 'error.relayQuotaFallback' : 'error.appleVideoStall');
       }
-    }, 12000);
+    }, 14000);
 
     return () => window.clearTimeout(timerId);
-  }, [remoteStream, pcStatus, hasVideoFrames]);
+  }, [remoteStream, pcStatus, hasVideoFrames, pcCallAttempt, pcRetryingRelay]);
 
   useEffect(() => {
     if (pcVideoRef.current) {
@@ -636,17 +799,34 @@ export const WebcamTool: React.FC = () => {
     }
   }, [monitorMuted]);
 
+  // Poll WebRTC stats for round-trip latency and P2P vs Relay transport detection
   useEffect(() => {
-    if (pcStatus !== 'live' && pcStatus !== 'connecting') {
-      setLatencyMs(null);
+    const activeConnStatus = mode === 'pc' ? pcStatus : phoneStatus;
+    if (activeConnStatus !== 'live' && activeConnStatus !== 'connecting') {
+      if (mode === 'pc') {
+        setLatencyMs(null);
+        setIsRelayed(false);
+      } else {
+        setPhoneIsRelayed(false);
+      }
       return;
     }
 
     let cancelled = false;
     const poll = async () => {
-      const ms = await measurePeerLatencyMs(pcActiveCallRef.current?.peerConnection);
-      if (!cancelled && ms !== null) {
-        setLatencyMs(ms);
+      const rtcPc =
+        mode === 'pc'
+          ? pcActiveCallRef.current?.peerConnection
+          : phoneCallRef.current?.peerConnection;
+      const telemetry = await measurePeerTelemetry(rtcPc);
+      if (cancelled) return;
+      if (mode === 'pc') {
+        if (telemetry.latencyMs !== null) {
+          setLatencyMs(telemetry.latencyMs);
+        }
+        setIsRelayed(telemetry.isRelayed);
+      } else {
+        setPhoneIsRelayed(telemetry.isRelayed);
       }
     };
 
@@ -656,7 +836,7 @@ export const WebcamTool: React.FC = () => {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [pcStatus]);
+  }, [mode, pcStatus, phoneStatus]);
 
   useEffect(() => {
     const onFsChange = () => {
@@ -757,6 +937,10 @@ export const WebcamTool: React.FC = () => {
   };
 
   const handlePcDisconnect = () => {
+    if (pcRelayWaitTimerRef.current !== null) {
+      window.clearTimeout(pcRelayWaitTimerRef.current);
+      pcRelayWaitTimerRef.current = null;
+    }
     if (pcActiveCallRef.current) {
       try {
         pcActiveCallRef.current.close();
@@ -769,6 +953,8 @@ export const WebcamTool: React.FC = () => {
     setHasVideoFrames(false);
     setResolutionLabel('');
     setLatencyMs(null);
+    setIsRelayed(false);
+    setPcRetryingRelay(false);
     setPhoneMicMuted(false);
     setPcStatus('waiting');
   };
@@ -857,6 +1043,309 @@ export const WebcamTool: React.FC = () => {
     }
   };
 
+  /**
+   * Two-stage WebRTC sender connection with 3-provider TURN fallback hopping:
+   *  - Stage 1 (`useRelayFallback = false`): STUN-only direct P2P (uses 0 bytes of TURN quota on same Wi-Fi).
+   *  - Stage 2 (`useRelayFallback = true`): Edge-served TURN relay (Metered -> Turnix -> ExpressTURN)
+   *    engaged ONLY if Stage 1 fails/stalls. If the active provider returns a quota/auth rejection
+   *    (401/403/437/486/508) or fails ICE, automatically skips it and hops mid-session to the next
+   *    provider in the chain before entering the 15-minute TURN cooldown.
+   */
+  const connectPhonePeer = useCallback(
+    async (
+      targetCode: string,
+      stream: MediaStream,
+      useRelayFallback: boolean,
+      sessionGen: number
+    ) => {
+      if (phoneSessionGenRef.current !== sessionGen) return;
+
+      closePhonePeerOnly();
+
+      let peerOptions = PEER_OPTIONS;
+      let activeProvider: ActiveTurnProvider | undefined;
+      if (useRelayFallback) {
+        const relayResult = await getRelayFallbackPeerOptions();
+        if (phoneSessionGenRef.current !== sessionGen) return;
+        if (!relayResult) {
+          setIsStartingCamera(false);
+          setPhoneRetryingRelay(false);
+          setPhoneStatus('disconnected');
+          setPhoneErrorKey('error.relayQuotaFallback');
+          return;
+        }
+        peerOptions = relayResult.peerOptions;
+        activeProvider = relayResult.provider;
+      }
+
+      try {
+        const { default: PeerClass } = await import('peerjs');
+        if (phoneSessionGenRef.current !== sessionGen) return;
+
+        const peer = new PeerClass(getSenderPeerId(targetCode), peerOptions);
+        phonePeerRef.current = peer;
+
+        const receiverId = getReceiverPeerId(targetCode);
+        let attemptLive = false;
+        let escalated = false;
+        let stopQuotaMonitor: (() => void) | null = null;
+
+        const clearConnectTimer = () => {
+          if (phoneConnectTimerRef.current !== null) {
+            window.clearTimeout(phoneConnectTimerRef.current);
+            phoneConnectTimerRef.current = null;
+          }
+        };
+
+        const isCurrentAttempt = () =>
+          phoneSessionGenRef.current === sessionGen && phonePeerRef.current === peer && !escalated;
+
+        const failStage2Gracefully = (errorKey: TranslationKey = 'error.relayQuotaFallback') => {
+          if (!isCurrentAttempt()) return;
+          clearConnectTimer();
+          stopQuotaMonitor?.();
+          stopQuotaMonitor = null;
+          closePhonePeerOnly();
+          setIsStartingCamera(false);
+          setPhoneRetryingRelay(false);
+          setPhoneStatus('disconnected');
+          setPhoneErrorKey(errorKey);
+        };
+
+        const hopToNextRelayProvider = () => {
+          if (!useRelayFallback || !activeProvider || attemptLive || escalated) return;
+          if (phoneSessionGenRef.current !== sessionGen || phonePeerRef.current !== peer) return;
+          escalated = true;
+          clearConnectTimer();
+          stopQuotaMonitor?.();
+          stopQuotaMonitor = null;
+
+          // Mark failing/quota-exhausted provider skipped and immediately fetch the next provider
+          // via `/api/ice-servers?mode=relay&skip=...` (Metered -> Turnix -> ExpressTURN).
+          skipTurnProvider(activeProvider);
+          setPhoneRetryingRelay(true);
+          setPhoneErrorKey(null);
+          setPhoneStatus('connecting');
+          void connectPhonePeer(targetCode, stream, true, sessionGen);
+        };
+
+        const escalateToRelay = () => {
+          if (useRelayFallback || attemptLive || escalated) return;
+          if (phoneSessionGenRef.current !== sessionGen || phonePeerRef.current !== peer) return;
+          escalated = true;
+          clearConnectTimer();
+          stopQuotaMonitor?.();
+          stopQuotaMonitor = null;
+
+          if (isTurnQuotaUnavailable()) {
+            closePhonePeerOnly();
+            setIsStartingCamera(false);
+            setPhoneRetryingRelay(false);
+            setPhoneStatus('disconnected');
+            setPhoneErrorKey('error.relayQuotaFallback');
+            return;
+          }
+
+          setPhoneRetryingRelay(true);
+          setPhoneErrorKey(null);
+          setPhoneStatus('connecting');
+          void connectPhonePeer(targetCode, stream, true, sessionGen);
+        };
+
+        peer.on('open', () => {
+          if (!isCurrentAttempt()) return;
+
+          // 1. Start the media call FIRST with Apple/Chrome-safe SDP codec order + ICE queue patch
+          const metadata: CallMetadata = {
+            relayFallback: useRelayFallback,
+            relayProvider: activeProvider,
+            skippedProviders: useRelayFallback ? getSkippedTurnProviders() : undefined,
+          };
+          const call = peer.call(receiverId, stream, {
+            sdpTransform: preferSafeVideoCodecs,
+            metadata,
+          });
+          phoneCallRef.current = call;
+
+          if (!call) {
+            clearConnectTimer();
+            setIsStartingCamera(false);
+            setPhoneRetryingRelay(false);
+            setPhoneErrorKey('error.peerUnavailable');
+            setPhoneStatus('disconnected');
+            return;
+          }
+
+          patchPeerJsIceQueue(call);
+
+          // 2. Open lightweight JSON DataConnection (avoids PeerJS binary serializer crash on iOS Safari)
+          const dataConn = peer.connect(receiverId, {
+            reliable: true,
+            serialization: 'json',
+          });
+          patchPeerJsIceQueue(dataConn);
+          phoneDataConnRef.current = dataConn;
+
+          dataConn.on('open', () => {
+            if (!isCurrentAttempt()) return;
+            const camMsg: PeerControlMessage = {
+              type: 'camera-state',
+              facingMode,
+              resolution: quality,
+            };
+            dataConn.send(camMsg);
+            const isCurrentlyMuted = !stream.getAudioTracks().some((tr) => tr.enabled);
+            if (isCurrentlyMuted) {
+              const micMsg: PeerControlMessage = { type: 'mic-state', muted: true };
+              dataConn.send(micMsg);
+            }
+            setIsStartingCamera(false);
+          });
+
+          // Stage 1: give direct local Wi-Fi P2P 4.5s before escalating to cross-network TURN relay.
+          // Stage 2: give each TURN provider 8s before hopping to the next provider in the chain.
+          clearConnectTimer();
+          phoneConnectTimerRef.current = window.setTimeout(
+            () => {
+              phoneConnectTimerRef.current = null;
+              if (!isCurrentAttempt() || attemptLive) return;
+              if (!useRelayFallback) {
+                escalateToRelay();
+              } else {
+                hopToNextRelayProvider();
+              }
+            },
+            useRelayFallback ? 8000 : 4500
+          );
+
+          const rtcPc = call.peerConnection;
+          if (rtcPc) {
+            if (useRelayFallback && activeProvider) {
+              stopQuotaMonitor = monitorTurnQuotaErrors(rtcPc, activeProvider, () => {
+                // Quota/auth rejection (401/403/437/486/508) -> immediately hop to next provider
+                hopToNextRelayProvider();
+              });
+            }
+
+            const markConnectedIfReady = () => {
+              if (!isCurrentAttempt()) return;
+              const ice = rtcPc.iceConnectionState;
+              const conn = rtcPc.connectionState;
+              if (ice === 'connected' || ice === 'completed' || conn === 'connected') {
+                attemptLive = true;
+                clearConnectTimer();
+                setIsStartingCamera(false);
+                setPhoneRetryingRelay(false);
+                setPhoneStatus('live');
+                setPhoneErrorKey(null);
+              } else if (ice === 'failed' || conn === 'failed') {
+                if (!useRelayFallback && !attemptLive) {
+                  escalateToRelay();
+                } else if (useRelayFallback && !attemptLive) {
+                  hopToNextRelayProvider();
+                } else if (useRelayFallback) {
+                  failStage2Gracefully('error.relayQuotaFallback');
+                } else {
+                  clearConnectTimer();
+                  setIsStartingCamera(false);
+                  setPhoneStatus('disconnected');
+                  setPhoneErrorKey('error.appleVideoStall');
+                }
+              } else if (ice === 'closed' || conn === 'closed') {
+                if (!useRelayFallback && !attemptLive) {
+                  escalateToRelay();
+                } else if (useRelayFallback && !attemptLive) {
+                  hopToNextRelayProvider();
+                } else {
+                  clearConnectTimer();
+                  setPhoneRetryingRelay(false);
+                  setPhoneStatus('disconnected');
+                }
+              }
+            };
+
+            rtcPc.addEventListener('iceconnectionstatechange', markConnectedIfReady);
+            rtcPc.addEventListener('connectionstatechange', markConnectedIfReady);
+          }
+
+          call.on('close', () => {
+            if (!isCurrentAttempt()) return;
+            if (!useRelayFallback && !attemptLive) {
+              escalateToRelay();
+              return;
+            }
+            if (useRelayFallback && !attemptLive) {
+              hopToNextRelayProvider();
+              return;
+            }
+            clearConnectTimer();
+            stopQuotaMonitor?.();
+            stopQuotaMonitor = null;
+            setPhoneRetryingRelay(false);
+            setPhoneStatus('disconnected');
+          });
+
+          call.on('error', (err) => {
+            if (!isCurrentAttempt()) return;
+            const errType = (err as { type?: string } | undefined)?.type;
+            if (!useRelayFallback && !attemptLive && errType !== 'peer-unavailable') {
+              escalateToRelay();
+              return;
+            }
+            if (useRelayFallback && !attemptLive && errType !== 'peer-unavailable') {
+              hopToNextRelayProvider();
+              return;
+            }
+            if (useRelayFallback) {
+              failStage2Gracefully(
+                errType === 'peer-unavailable'
+                  ? 'error.peerUnavailable'
+                  : 'error.relayQuotaFallback'
+              );
+              return;
+            }
+            clearConnectTimer();
+            setIsStartingCamera(false);
+            setPhoneRetryingRelay(false);
+            setPhoneStatus('disconnected');
+            setPhoneErrorKey(mapPeerErrorToKey(err));
+          });
+        });
+
+        peer.on('error', (err) => {
+          if (!isCurrentAttempt()) return;
+          const errType = (err as { type?: string } | undefined)?.type;
+          if (!useRelayFallback && !attemptLive && errType === 'webrtc') {
+            escalateToRelay();
+            return;
+          }
+          if (useRelayFallback && !attemptLive && errType === 'webrtc') {
+            hopToNextRelayProvider();
+            return;
+          }
+          clearConnectTimer();
+          stopQuotaMonitor?.();
+          stopQuotaMonitor = null;
+          setIsStartingCamera(false);
+          setPhoneRetryingRelay(false);
+          setPhoneStatus('disconnected');
+          setPhoneErrorKey(
+            useRelayFallback && errType !== 'peer-unavailable'
+              ? 'error.relayQuotaFallback'
+              : mapPeerErrorToKey(err)
+          );
+        });
+      } catch (err) {
+        if (phoneSessionGenRef.current !== sessionGen) return;
+        setIsStartingCamera(false);
+        setPhoneRetryingRelay(false);
+        setPhoneStatus('disconnected');
+        setPhoneErrorKey(useRelayFallback ? 'error.relayQuotaFallback' : mapPeerErrorToKey(err));
+      }
+    },
+    [closePhonePeerOnly, facingMode, quality]
+  );
+
   // === Phone Start Camera & Mic (User Gesture for iOS Safari) ===
   const handleStartPhoneStream = async () => {
     const targetCode = sanitizeRoomCode(joinedPhoneCode);
@@ -870,7 +1359,12 @@ export const WebcamTool: React.FC = () => {
       return;
     }
 
+    phoneSessionGenRef.current += 1;
+    const sessionGen = phoneSessionGenRef.current;
+
     setPhoneErrorKey(null);
+    setPhoneRetryingRelay(false);
+    setPhoneIsRelayed(false);
     setIsStartingCamera(true);
     setPhoneStatus('connecting');
 
@@ -881,6 +1375,11 @@ export const WebcamTool: React.FC = () => {
       setIsStartingCamera(false);
       setPhoneStatus('ready');
       setPhoneErrorKey(mapMediaErrorToKey(err));
+      return;
+    }
+
+    if (phoneSessionGenRef.current !== sessionGen) {
+      stream.getTracks().forEach((tr) => tr.stop());
       return;
     }
 
@@ -898,90 +1397,10 @@ export const WebcamTool: React.FC = () => {
       window.requestAnimationFrame(() => resolve());
     });
 
-    try {
-      const { default: PeerClass } = await import('peerjs');
-      const peer = new PeerClass(getSenderPeerId(targetCode), PEER_OPTIONS);
-      phonePeerRef.current = peer;
+    if (phoneSessionGenRef.current !== sessionGen) return;
 
-      const receiverId = getReceiverPeerId(targetCode);
-
-      peer.on('open', () => {
-        // 1. Start the media call FIRST with Apple/Chrome-safe SDP codec order + ICE queue patch
-        const call = peer.call(receiverId, stream, {
-          sdpTransform: preferSafeVideoCodecs,
-        });
-        phoneCallRef.current = call;
-
-        if (!call) {
-          setIsStartingCamera(false);
-          setPhoneErrorKey('error.peerUnavailable');
-          setPhoneStatus('disconnected');
-          return;
-        }
-
-        patchPeerJsIceQueue(call);
-
-        // 2. Open lightweight JSON DataConnection (avoids PeerJS binary serializer crash on iOS Safari)
-        const dataConn = peer.connect(receiverId, {
-          reliable: true,
-          serialization: 'json',
-        });
-        patchPeerJsIceQueue(dataConn);
-        phoneDataConnRef.current = dataConn;
-
-        dataConn.on('open', () => {
-          const msg: PeerControlMessage = {
-            type: 'camera-state',
-            facingMode,
-            resolution: quality,
-          };
-          dataConn.send(msg);
-          setIsStartingCamera(false);
-        });
-
-        const rtcPc = call.peerConnection;
-        if (rtcPc) {
-          const markConnectedIfReady = () => {
-            const ice = rtcPc.iceConnectionState;
-            const conn = rtcPc.connectionState;
-            if (ice === 'connected' || ice === 'completed' || conn === 'connected') {
-              setIsStartingCamera(false);
-              setPhoneStatus('live');
-              setPhoneErrorKey(null);
-            } else if (ice === 'failed' || conn === 'failed') {
-              setIsStartingCamera(false);
-              setPhoneStatus('disconnected');
-              setPhoneErrorKey('error.appleVideoStall');
-            } else if (ice === 'closed' || conn === 'closed') {
-              setPhoneStatus('disconnected');
-            }
-          };
-
-          rtcPc.addEventListener('iceconnectionstatechange', markConnectedIfReady);
-          rtcPc.addEventListener('connectionstatechange', markConnectedIfReady);
-        }
-
-        call.on('close', () => {
-          setPhoneStatus('disconnected');
-        });
-
-        call.on('error', (err) => {
-          setIsStartingCamera(false);
-          setPhoneStatus('disconnected');
-          setPhoneErrorKey(mapPeerErrorToKey(err));
-        });
-      });
-
-      peer.on('error', (err) => {
-        setIsStartingCamera(false);
-        setPhoneStatus('disconnected');
-        setPhoneErrorKey(mapPeerErrorToKey(err));
-      });
-    } catch (err) {
-      setIsStartingCamera(false);
-      setPhoneStatus('disconnected');
-      setPhoneErrorKey(mapPeerErrorToKey(err));
-    }
+    // Always try Stage 1 (STUN-only direct P2P) first to preserve free TURN relay quota
+    await connectPhonePeer(targetCode, stream, false, sessionGen);
   };
 
   const handleSwitchCamera = async () => {
@@ -1096,7 +1515,11 @@ export const WebcamTool: React.FC = () => {
   }
 
   // Minimal live status indicator (screen-reader live region)
-  const renderStatusIndicator = (status: ConnectionStatus) => {
+  const renderStatusIndicator = (
+    status: ConnectionStatus,
+    retryingRelay: boolean,
+    relayed: boolean
+  ) => {
     if (status === 'live') {
       return (
         <span
@@ -1108,7 +1531,7 @@ export const WebcamTool: React.FC = () => {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
           </span>
-          <span>{t('tool.statusLive')}</span>
+          <span>{t(relayed ? 'tool.statusLiveRelay' : 'tool.statusLive')}</span>
         </span>
       );
     }
@@ -1121,7 +1544,7 @@ export const WebcamTool: React.FC = () => {
           className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs sm:text-sm font-bold bg-amber-500/12 text-amber-800 dark:text-amber-200 border border-amber-500/25"
         >
           <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" aria-hidden="true" />
-          <span>{t('tool.statusConnecting')}</span>
+          <span>{t(retryingRelay ? 'tool.switchingToRelay' : 'tool.statusConnecting')}</span>
         </span>
       );
     }
@@ -1154,6 +1577,8 @@ export const WebcamTool: React.FC = () => {
   };
 
   const activeStatus = mode === 'pc' ? pcStatus : phoneStatus;
+  const activeRetryingRelay = mode === 'pc' ? pcRetryingRelay : phoneRetryingRelay;
+  const activeIsRelayed = mode === 'pc' ? isRelayed : phoneIsRelayed;
 
   return (
     <div className="w-full">
@@ -1200,7 +1625,7 @@ export const WebcamTool: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2">
-          {renderStatusIndicator(activeStatus)}
+          {renderStatusIndicator(activeStatus, activeRetryingRelay, activeIsRelayed)}
 
           {mode === 'pc' && pcStatus === 'live' && resolutionLabel && (
             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono font-bold surface-subtle border border-edge/70 text-ink">
@@ -1389,7 +1814,11 @@ export const WebcamTool: React.FC = () => {
                   <div className="absolute inset-0 flex items-center justify-center bg-black/45 pointer-events-none">
                     <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-black/75 border border-white/15 text-sm font-semibold text-[#E3FDFD]">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#71C9CE] animate-pulse" aria-hidden="true" />
-                      <span>{t('tool.waitingVideoFrames')}</span>
+                      <span>
+                        {pcRetryingRelay
+                          ? t('tool.switchingToRelay')
+                          : t('tool.waitingVideoFrames')}
+                      </span>
                     </div>
                   </div>
                 )}
