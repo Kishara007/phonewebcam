@@ -1,6 +1,16 @@
 ; PhoneWebcam Bridge — Tauri v2 NSIS 1-Click Installer Hooks
-; Automatically registers the bundled Softcam DirectShow virtual camera DLL
+; Handles locked DLL upgrades cleanly, registers Softcam DirectShow virtual camera,
 ; and assists with optional VB-Cable installation for Zoom/Meet microphone routing.
+
+!macro NSIS_HOOK_PREINSTALL
+  ; Windows locks softcam.dll while Chrome/Meet/Zoom has it loaded, but allows renaming it.
+  ; Moving any locked copy aside avoids "Error opening file for writing: softcam.dll" on upgrades.
+  IfFileExists "$INSTDIR\resources\softcam.dll" 0 _pwc_pre_done
+    Delete "$INSTDIR\resources\softcam.dll.old"
+    Rename "$INSTDIR\resources\softcam.dll" "$INSTDIR\resources\softcam.dll.old"
+    Delete /REBOOTOK "$INSTDIR\resources\softcam.dll.old"
+  _pwc_pre_done:
+!macroend
 
 !macro NSIS_HOOK_POSTINSTALL
   DetailPrint "Registering PhoneWebcam DirectShow Virtual Camera driver..."
